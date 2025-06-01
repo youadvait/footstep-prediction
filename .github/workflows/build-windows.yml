@@ -32,194 +32,186 @@ jobs:
         # Create VST2 SDK directory structure
         New-Item -ItemType Directory -Force -Path "VST2_SDK/pluginterfaces/vst2.x"
         
-        # Create complete aeffect.h with all required structures
-        $aeffectContent = @"
-#ifndef __aeffect__
-#define __aeffect__
-
-#ifdef __cplusplus
-extern `"C`" {
-#endif
-
-enum {
-    kEffectMagic = 'VstP'
-};
-
-enum {
-    kVstVersion = 2400
-};
-
-typedef float VstParameterValue;
-typedef long VstInt32;
-typedef VstInt32 VstIntPtr;
-
-// VstEvent structures (REQUIRED BY JUCE)
-enum VstEventTypes {
-    kVstMidiType = 1,
-    kVstAudioType,
-    kVstVideoType,
-    kVstParameterType,
-    kVstTriggerType,
-    kVstSysExType
-};
-
-struct VstEvent {
-    VstInt32 type;
-    VstInt32 byteSize;
-    VstInt32 deltaFrames;
-    VstInt32 flags;
-    char data[16];
-};
-
-struct VstMidiEvent {
-    VstInt32 type;
-    VstInt32 byteSize;
-    VstInt32 deltaFrames;
-    VstInt32 flags;
-    VstInt32 noteLength;
-    VstInt32 noteOffset;
-    char midiData[4];
-    char detune;
-    char noteOffVelocity;
-    char reserved1;
-    char reserved2;
-};
-
-struct VstEvents {
-    VstInt32 numEvents;
-    VstIntPtr reserved;
-    VstEvent* events[2];
-};
-
-// AEffect structure
-struct AEffect {
-    VstInt32 magic;
-    VstIntPtr dispatcher;
-    VstIntPtr process;
-    VstIntPtr setParameter;
-    VstIntPtr getParameter;
-    VstInt32 numPrograms;
-    VstInt32 numParams;
-    VstInt32 numInputs;
-    VstInt32 numOutputs;
-    VstInt32 flags;
-    VstIntPtr resvd1;
-    VstIntPtr resvd2;
-    VstInt32 initialDelay;
-    VstInt32 realQualities;
-    VstInt32 offQualities;
-    float ioRatio;
-    void* object;
-    void* user;
-    VstInt32 uniqueID;
-    VstInt32 version;
-    VstIntPtr processReplacing;
-    VstIntPtr processDoubleReplacing;
-    char future[56];
-};
-
-typedef AEffect* (*audioMasterCallback) (AEffect* effect, VstInt32 opcode, VstInt32 index, VstIntPtr value, void* ptr, float opt);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
-"@
+        # Create aeffect.h using simple string building
+        $header1 = "#ifndef __aeffect__"
+        $header2 = "#define __aeffect__"
+        $header3 = ""
+        $header4 = "#ifdef __cplusplus"
+        $header5 = "extern `"C`" {"
+        $header6 = "#endif"
+        $header7 = ""
+        $header8 = "enum { kEffectMagic = 'VstP' };"
+        $header9 = "enum { kVstVersion = 2400 };"
+        $header10 = ""
+        $header11 = "typedef float VstParameterValue;"
+        $header12 = "typedef long VstInt32;"
+        $header13 = "typedef VstInt32 VstIntPtr;"
+        $header14 = ""
+        $header15 = "enum VstEventTypes {"
+        $header16 = "    kVstMidiType = 1,"
+        $header17 = "    kVstAudioType,"
+        $header18 = "    kVstVideoType,"
+        $header19 = "    kVstParameterType,"
+        $header20 = "    kVstTriggerType,"
+        $header21 = "    kVstSysExType"
+        $header22 = "};"
+        $header23 = ""
+        $header24 = "struct VstEvent {"
+        $header25 = "    VstInt32 type;"
+        $header26 = "    VstInt32 byteSize;"
+        $header27 = "    VstInt32 deltaFrames;"
+        $header28 = "    VstInt32 flags;"
+        $header29 = "    char data[16];"
+        $header30 = "};"
+        $header31 = ""
+        $header32 = "struct VstMidiEvent {"
+        $header33 = "    VstInt32 type;"
+        $header34 = "    VstInt32 byteSize;"
+        $header35 = "    VstInt32 deltaFrames;"
+        $header36 = "    VstInt32 flags;"
+        $header37 = "    VstInt32 noteLength;"
+        $header38 = "    VstInt32 noteOffset;"
+        $header39 = "    char midiData[4];"
+        $header40 = "    char detune;"
+        $header41 = "    char noteOffVelocity;"
+        $header42 = "    char reserved1;"
+        $header43 = "    char reserved2;"
+        $header44 = "};"
+        $header45 = ""
+        $header46 = "struct VstEvents {"
+        $header47 = "    VstInt32 numEvents;"
+        $header48 = "    VstIntPtr reserved;"
+        $header49 = "    VstEvent* events[2];"
+        $header50 = "};"
+        $header51 = ""
+        $header52 = "struct AEffect {"
+        $header53 = "    VstInt32 magic;"
+        $header54 = "    VstIntPtr dispatcher;"
+        $header55 = "    VstIntPtr process;"
+        $header56 = "    VstIntPtr setParameter;"
+        $header57 = "    VstIntPtr getParameter;"
+        $header58 = "    VstInt32 numPrograms;"
+        $header59 = "    VstInt32 numParams;"
+        $header60 = "    VstInt32 numInputs;"
+        $header61 = "    VstInt32 numOutputs;"
+        $header62 = "    VstInt32 flags;"
+        $header63 = "    VstIntPtr resvd1;"
+        $header64 = "    VstIntPtr resvd2;"
+        $header65 = "    VstInt32 initialDelay;"
+        $header66 = "    VstInt32 realQualities;"
+        $header67 = "    VstInt32 offQualities;"
+        $header68 = "    float ioRatio;"
+        $header69 = "    void* object;"
+        $header70 = "    void* user;"
+        $header71 = "    VstInt32 uniqueID;"
+        $header72 = "    VstInt32 version;"
+        $header73 = "    VstIntPtr processReplacing;"
+        $header74 = "    VstIntPtr processDoubleReplacing;"
+        $header75 = "    char future[56];"
+        $header76 = "};"
+        $header77 = ""
+        $header78 = "typedef AEffect* (*audioMasterCallback) (AEffect* effect, VstInt32 opcode, VstInt32 index, VstIntPtr value, void* ptr, float opt);"
+        $header79 = ""
+        $header80 = "#ifdef __cplusplus"
+        $header81 = "}"
+        $header82 = "#endif"
+        $header83 = ""
+        $header84 = "#endif"
+        
+        $aeffectContent = @($header1, $header2, $header3, $header4, $header5, $header6, $header7, $header8, $header9, $header10, $header11, $header12, $header13, $header14, $header15, $header16, $header17, $header18, $header19, $header20, $header21, $header22, $header23, $header24, $header25, $header26, $header27, $header28, $header29, $header30, $header31, $header32, $header33, $header34, $header35, $header36, $header37, $header38, $header39, $header40, $header41, $header42, $header43, $header44, $header45, $header46, $header47, $header48, $header49, $header50, $header51, $header52, $header53, $header54, $header55, $header56, $header57, $header58, $header59, $header60, $header61, $header62, $header63, $header64, $header65, $header66, $header67, $header68, $header69, $header70, $header71, $header72, $header73, $header74, $header75, $header76, $header77, $header78, $header79, $header80, $header81, $header82, $header83, $header84) -join "`n"
         $aeffectContent | Out-File -FilePath "VST2_SDK/pluginterfaces/vst2.x/aeffect.h" -Encoding utf8
         
-        # Create complete aeffectx.h
-        $aeffectxContent = @"
-#ifndef __aeffectx__
-#define __aeffectx__
-
-#include `"aeffect.h`"
-
-#ifdef __cplusplus
-extern `"C`" {
-#endif
-
-enum {
-    effOpen = 0, effClose, effSetProgram, effGetProgram, effSetProgramName,
-    effGetProgramName, effGetParamLabel, effGetParamDisplay, effGetParamName,
-    effGetVu, effSetSampleRate, effSetBlockSize, effMainsChanged, effEditGetRect,
-    effEditOpen, effEditClose, effEditDraw, effEditMouse, effEditKey, effEditIdle,
-    effEditTop, effEditSleep, effIdentify, effGetChunk, effSetChunk, effProcessEvents,
-    effCanBeAutomated, effString2Parameter, effGetNumProgramCategories,
-    effGetProgramNameIndexed, effCopyProgram, effConnectInput, effConnectOutput,
-    effGetInputProperties, effGetOutputProperties, effGetPlugCategory,
-    effGetCurrentPosition, effGetDestinationBuffer, effOfflineNotify,
-    effOfflinePrepare, effOfflineRun, effProcessVarIo, effSetSpeakerArrangement,
-    effSetBlockSizeAndSampleRate, effSetBypass, effGetEffectName, effGetErrorText,
-    effGetVendorString, effGetProductString, effGetVendorVersion, effVendorSpecific,
-    effCanDo, effGetTailSize, effIdle, effGetIcon, effSetViewPosition,
-    effGetParameterProperties, effKeysRequired, effGetVstVersion, effEditKeyDown,
-    effEditKeyUp, effSetEditKnobMode, effGetMidiProgramName, effGetCurrentMidiProgram,
-    effGetMidiProgramCategory, effHasMidiProgramsChanged, effGetMidiKeyName,
-    effBeginSetProgram, effEndSetProgram, effGetSpeakerArrangement,
-    effShellGetNextPlugin, effStartProcess, effStopProcess, effSetTotalSampleCount,
-    effSetPanLaw, effBeginLoadBank, effBeginLoadProgram, effSetProcessPrecision,
-    effGetNumMidiInputChannels, effGetNumMidiOutputChannels
-};
-
-// VstPlugin flags
-enum VstAEffectFlags {
-    effFlagsHasEditor = 1,
-    effFlagsCanReplacing = 1 << 4,
-    effFlagsProgramChunks = 1 << 5,
-    effFlagsIsSynth = 1 << 8,
-    effFlagsNoSoundInStop = 1 << 9,
-    effFlagsCanDoubleReplacing = 1 << 12
-};
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
-"@
+        # Create aeffectx.h using simple approach
+        $ax1 = "#ifndef __aeffectx__"
+        $ax2 = "#define __aeffectx__"
+        $ax3 = ""
+        $ax4 = "#include `"aeffect.h`""
+        $ax5 = ""
+        $ax6 = "#ifdef __cplusplus"
+        $ax7 = "extern `"C`" {"
+        $ax8 = "#endif"
+        $ax9 = ""
+        $ax10 = "enum {"
+        $ax11 = "    effOpen = 0, effClose, effSetProgram, effGetProgram, effSetProgramName,"
+        $ax12 = "    effGetProgramName, effGetParamLabel, effGetParamDisplay, effGetParamName,"
+        $ax13 = "    effGetVu, effSetSampleRate, effSetBlockSize, effMainsChanged, effEditGetRect,"
+        $ax14 = "    effEditOpen, effEditClose, effEditDraw, effEditMouse, effEditKey, effEditIdle,"
+        $ax15 = "    effEditTop, effEditSleep, effIdentify, effGetChunk, effSetChunk, effProcessEvents,"
+        $ax16 = "    effCanBeAutomated, effString2Parameter, effGetNumProgramCategories,"
+        $ax17 = "    effGetProgramNameIndexed, effCopyProgram, effConnectInput, effConnectOutput,"
+        $ax18 = "    effGetInputProperties, effGetOutputProperties, effGetPlugCategory,"
+        $ax19 = "    effGetCurrentPosition, effGetDestinationBuffer, effOfflineNotify,"
+        $ax20 = "    effOfflinePrepare, effOfflineRun, effProcessVarIo, effSetSpeakerArrangement,"
+        $ax21 = "    effSetBlockSizeAndSampleRate, effSetBypass, effGetEffectName, effGetErrorText,"
+        $ax22 = "    effGetVendorString, effGetProductString, effGetVendorVersion, effVendorSpecific,"
+        $ax23 = "    effCanDo, effGetTailSize, effIdle, effGetIcon, effSetViewPosition,"
+        $ax24 = "    effGetParameterProperties, effKeysRequired, effGetVstVersion, effEditKeyDown,"
+        $ax25 = "    effEditKeyUp, effSetEditKnobMode, effGetMidiProgramName, effGetCurrentMidiProgram,"
+        $ax26 = "    effGetMidiProgramCategory, effHasMidiProgramsChanged, effGetMidiKeyName,"
+        $ax27 = "    effBeginSetProgram, effEndSetProgram, effGetSpeakerArrangement,"
+        $ax28 = "    effShellGetNextPlugin, effStartProcess, effStopProcess, effSetTotalSampleCount,"
+        $ax29 = "    effSetPanLaw, effBeginLoadBank, effBeginLoadProgram, effSetProcessPrecision,"
+        $ax30 = "    effGetNumMidiInputChannels, effGetNumMidiOutputChannels"
+        $ax31 = "};"
+        $ax32 = ""
+        $ax33 = "enum VstAEffectFlags {"
+        $ax34 = "    effFlagsHasEditor = 1,"
+        $ax35 = "    effFlagsCanReplacing = 1 << 4,"
+        $ax36 = "    effFlagsProgramChunks = 1 << 5,"
+        $ax37 = "    effFlagsIsSynth = 1 << 8,"
+        $ax38 = "    effFlagsNoSoundInStop = 1 << 9,"
+        $ax39 = "    effFlagsCanDoubleReplacing = 1 << 12"
+        $ax40 = "};"
+        $ax41 = ""
+        $ax42 = "#ifdef __cplusplus"
+        $ax43 = "}"
+        $ax44 = "#endif"
+        $ax45 = ""
+        $ax46 = "#endif"
+        
+        $aeffectxContent = @($ax1, $ax2, $ax3, $ax4, $ax5, $ax6, $ax7, $ax8, $ax9, $ax10, $ax11, $ax12, $ax13, $ax14, $ax15, $ax16, $ax17, $ax18, $ax19, $ax20, $ax21, $ax22, $ax23, $ax24, $ax25, $ax26, $ax27, $ax28, $ax29, $ax30, $ax31, $ax32, $ax33, $ax34, $ax35, $ax36, $ax37, $ax38, $ax39, $ax40, $ax41, $ax42, $ax43, $ax44, $ax45, $ax46) -join "`n"
         $aeffectxContent | Out-File -FilePath "VST2_SDK/pluginterfaces/vst2.x/aeffectx.h" -Encoding utf8
         
         # Create vstfxstore.h
-        $vstfxContent = @"
-#ifndef __vstfxstore__
-#define __vstfxstore__
-
-#include `"aeffectx.h`"
-
-#ifdef __cplusplus
-extern `"C`" {
-#endif
-
-struct fxBank {
-    VstInt32 chunkMagic;
-    VstInt32 byteSize;
-    VstInt32 fxMagic;
-    VstInt32 version;
-    VstInt32 fxID;
-    VstInt32 fxVersion;
-    VstInt32 numPrograms;
-    char prgName[28];
-    VstInt32 chunkSize;
-};
-
-struct fxProgram {
-    VstInt32 chunkMagic;
-    VstInt32 byteSize;
-    VstInt32 fxMagic;
-    VstInt32 version;
-    VstInt32 fxID;
-    VstInt32 fxVersion;
-    VstInt32 numParams;
-    char prgName[28];
-};
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
-"@
+        $fx1 = "#ifndef __vstfxstore__"
+        $fx2 = "#define __vstfxstore__"
+        $fx3 = ""
+        $fx4 = "#include `"aeffectx.h`""
+        $fx5 = ""
+        $fx6 = "#ifdef __cplusplus"
+        $fx7 = "extern `"C`" {"
+        $fx8 = "#endif"
+        $fx9 = ""
+        $fx10 = "struct fxBank {"
+        $fx11 = "    VstInt32 chunkMagic;"
+        $fx12 = "    VstInt32 byteSize;"
+        $fx13 = "    VstInt32 fxMagic;"
+        $fx14 = "    VstInt32 version;"
+        $fx15 = "    VstInt32 fxID;"
+        $fx16 = "    VstInt32 fxVersion;"
+        $fx17 = "    VstInt32 numPrograms;"
+        $fx18 = "    char prgName[28];"
+        $fx19 = "    VstInt32 chunkSize;"
+        $fx20 = "};"
+        $fx21 = ""
+        $fx22 = "struct fxProgram {"
+        $fx23 = "    VstInt32 chunkMagic;"
+        $fx24 = "    VstInt32 byteSize;"
+        $fx25 = "    VstInt32 fxMagic;"
+        $fx26 = "    VstInt32 version;"
+        $fx27 = "    VstInt32 fxID;"
+        $fx28 = "    VstInt32 fxVersion;"
+        $fx29 = "    VstInt32 numParams;"
+        $fx30 = "    char prgName[28];"
+        $fx31 = "};"
+        $fx32 = ""
+        $fx33 = "#ifdef __cplusplus"
+        $fx34 = "}"
+        $fx35 = "#endif"
+        $fx36 = ""
+        $fx37 = "#endif"
+        
+        $vstfxContent = @($fx1, $fx2, $fx3, $fx4, $fx5, $fx6, $fx7, $fx8, $fx9, $fx10, $fx11, $fx12, $fx13, $fx14, $fx15, $fx16, $fx17, $fx18, $fx19, $fx20, $fx21, $fx22, $fx23, $fx24, $fx25, $fx26, $fx27, $fx28, $fx29, $fx30, $fx31, $fx32, $fx33, $fx34, $fx35, $fx36, $fx37) -join "`n"
         $vstfxContent | Out-File -FilePath "VST2_SDK/pluginterfaces/vst2.x/vstfxstore.h" -Encoding utf8
         
         Write-Host "✅ Complete VST2 SDK headers created with all required structures"
@@ -233,7 +225,8 @@ struct fxProgram {
         # Verify complete headers exist
         if (Test-Path "VST2_SDK/pluginterfaces/vst2.x/aeffect.h") {
           Write-Host "✅ Complete VST2 headers ready"
-          Write-Host "aeffect.h size: $((Get-Item 'VST2_SDK/pluginterfaces/vst2.x/aeffect.h').Length) bytes"
+          $headerSize = (Get-Item 'VST2_SDK/pluginterfaces/vst2.x/aeffect.h').Length
+          Write-Host "aeffect.h size: $headerSize bytes"
         } else {
           Write-Host "❌ VST2 headers missing"
           exit 1
@@ -260,26 +253,27 @@ struct fxProgram {
           $dllSize = (Get-Item $dllPath).Length
           Write-Host "✅ VST2 DLL packaged successfully: $dll ($dllSize bytes)"
           
-          # Create installation instructions
-          @"
-FootstepDetector VST2 for EqualizerAPO
-
-INSTALLATION:
-1. Copy FootstepDetector.dll to your VST plugin folder
-2. In EqualizerAPO config.txt, add:
-   VSTPlugin: "path\to\FootstepDetector.dll"
-3. Restart audio applications
-
-FEATURES:
-- Automatic footstep detection
-- Real-time amplification
-- Optimized for Call of Duty
-- Low latency processing
-
-Build Date: $(Get-Date)
-Platform: Windows x64
-Format: VST2 (.dll)
-"@ | Out-File -FilePath "package/INSTALLATION.txt" -Encoding utf8
+          # Create installation instructions using simple approach
+          $inst1 = "FootstepDetector VST2 for EqualizerAPO"
+          $inst2 = ""
+          $inst3 = "INSTALLATION:"
+          $inst4 = "1. Copy FootstepDetector.dll to your VST plugin folder"
+          $inst5 = "2. In EqualizerAPO config.txt, add:"
+          $inst6 = "   VSTPlugin: `"path\to\FootstepDetector.dll`""
+          $inst7 = "3. Restart audio applications"
+          $inst8 = ""
+          $inst9 = "FEATURES:"
+          $inst10 = "- Automatic footstep detection"
+          $inst11 = "- Real-time amplification"
+          $inst12 = "- Optimized for Call of Duty"
+          $inst13 = "- Low latency processing"
+          $inst14 = ""
+          $inst15 = "Build Date: $(Get-Date)"
+          $inst16 = "Platform: Windows x64"
+          $inst17 = "Format: VST2 (.dll)"
+          
+          $instContent = @($inst1, $inst2, $inst3, $inst4, $inst5, $inst6, $inst7, $inst8, $inst9, $inst10, $inst11, $inst12, $inst13, $inst14, $inst15, $inst16, $inst17) -join "`n"
+          $instContent | Out-File -FilePath "package/INSTALLATION.txt" -Encoding utf8
           
         } else {
           Write-Host "❌ VST2 DLL not found"
