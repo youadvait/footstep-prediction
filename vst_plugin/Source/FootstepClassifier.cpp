@@ -167,7 +167,7 @@ float FootstepClassifier::analyzeFootstepFrequencies(const float* audioBuffer, i
 }
 
 float FootstepClassifier::calculateBandEnergy(const float* audioBuffer, int bufferSize, float sampleRate, 
-                                            float lowFreq, float highFreq)
+                                            float /*lowFreq*/, float highFreq)
 {
     // Simple time-domain approximation of frequency band energy
     // Not perfect but much more reliable than FFT for this use case
