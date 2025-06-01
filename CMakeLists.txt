@@ -15,7 +15,7 @@ juce_add_plugin(FootstepDetector
     COMPANY_NAME "FootstepTech"
     PLUGIN_MANUFACTURER_CODE FtTc
     PLUGIN_CODE FsDt
-    FORMATS VST3
+    FORMATS VST   # CHANGED: VST2 instead of VST3
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -53,9 +53,7 @@ target_compile_definitions(FootstepDetector PRIVATE
     JUCE_DISPLAY_SPLASH_SCREEN=0
     JUCE_REPORT_APP_USAGE=0
     JUCE_MODAL_LOOPS_PERMITTED=1
-    # CRITICAL: Disable VST2 compatibility to avoid missing headers
+    # Enable VST2 for EqualizerAPO compatibility
+    JucePlugin_Build_VST=1
     JUCE_VST3_CAN_REPLACE_VST2=0
-    JucePlugin_Build_VST=0
-    JUCE_PLUGINHOST_VST=0
-    JUCE_PLUGINHOST_VST3=1
 )
