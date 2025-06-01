@@ -12,71 +12,69 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Check JUCE version and functions
-      run: |
-        Write-Host "=== JUCE VERSION CHECK ==="
-        if (Test-Path "JUCE/VERSION.txt") {
-          Get-Content "JUCE/VERSION.txt"
-        } else {
-          Write-Host "No VERSION.txt found"
-        }
-        
-        Write-Host "=== JUCE CMAKE FUNCTIONS ==="
-        Select-String -Path "JUCE/CMakeLists.txt" -Pattern "juce_add_plugin|juce_generate_juce_header" | Select-Object -First 10
-        
-        Write-Host "=== SOURCE FILE CHECK ==="
-        if (Test-Path "vst_plugin/Source/PluginProcessor.cpp") {
-          Write-Host "PluginProcessor.cpp size: $((Get-Item 'vst_plugin/Source/PluginProcessor.cpp').Length) bytes"
-          Write-Host "First 10 lines:"
-          Get-Content "vst_plugin/Source/PluginProcessor.cpp" -TotalCount 10
-        }
-        
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
     
-    - name: CMAKE DEBUG - Step by step
+    - name: Configure CMake
       run: |
-        Write-Host "=== CMAKE STEP-BY-STEP DEBUG ==="
-        Write-Host "Step 1: CMake version"
-        cmake --version
+        Write-Host "=== CMAKE CONFIGURATION ==="
+        cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+    
+    - name: Build VST3
+      run: |
+        Write-Host "=== BUILDING VST3 ==="
+        cmake --build build --config Release --target FootstepDetector_VST3 --verbose
+    
+    - name: Find VST3 output
+      run: |
+        Write-Host "=== SEARCHING FOR BUILT VST3 ==="
+        Get-ChildItem -Recurse build/ -Name "*.vst3" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "Found VST3: $_" }
+        Get-ChildItem -Recurse build/ -Name "*FootstepDetector*" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "Found: $_" }
+    
+    - name: Package VST3
+      run: |
+        Write-Host "=== PACKAGING VST3 ==="
+        New-Item -ItemType Directory -Force -Path package
         
-        Write-Host "Step 2: Test basic CMake"
-        cmake --help | Select-Object -First 5
+        # Look for VST3 in common build locations
+        $vst3Paths = @(
+          "build/FootstepDetector_artefacts/Release/VST3/FootstepDetector.vst3",
+          "build/Release/VST3/FootstepDetector.vst3",
+          "build/VST3/FootstepDetector.vst3"
+        )
         
-        Write-Host "Step 3: Test generator"
-        cmake -G "Visual Studio 17 2022" --help | Select-Object -First 5
-        
-        Write-Host "Step 4: Check JUCE subdirectory"
-        if (Test-Path "JUCE/CMakeLists.txt") {
-          Write-Host "✅ JUCE CMakeLists.txt exists"
-          Write-Host "JUCE CMakeLists.txt first 20 lines:"
-          Get-Content "JUCE/CMakeLists.txt" -TotalCount 20
+        $found = $false
+        foreach ($path in $vst3Paths) {
+          if (Test-Path $path) {
+            Write-Host "✅ Found VST3 at: $path"
+            Copy-Item -Recurse $path package/
+            $found = $true
+            break
+          }
         }
         
-        Write-Host "Step 5: Test basic CMake configuration"
-        Write-Host "About to run: cmake -B build-test --debug-output -G ""Visual Studio 17 2022"" -A x64"
-        
-    - name: CMake Configure with MAXIMUM debug
-      run: |
-        Write-Host "=== FULL CMAKE CONFIGURE ==="
-        $env:VERBOSE = "1"
-        cmake -B build --debug-output --trace --trace-expand -G "Visual Studio 17 2022" -A x64 2>&1 | Tee-Object -FilePath cmake_full_debug.log
-        Write-Host "CMAKE Exit Code: $LASTEXITCODE"
-        
-        if ($LASTEXITCODE -ne 0) {
-          Write-Host "=== CMAKE FAILED - Last 50 lines of output ==="
-          Get-Content cmake_full_debug.log -Tail 50
+        if (-not $found) {
+          Write-Host "❌ VST3 not found in expected locations"
+          Write-Host "All build outputs:"
+          Get-ChildItem -Recurse build/ -Name "*.*" | Sort-Object | ForEach-Object { Write-Host "  $_" }
+          
+          # Create placeholder for debugging
+          New-Item -Path "package/BUILD_COMPLETED_BUT_VST3_NOT_FOUND.txt" -Value "Build completed but VST3 location unknown" -Force
         }
-      shell: powershell
-      continue-on-error: true
         
-    - name: Upload ALL debug info
+    - name: Upload Windows VST3
+      uses: actions/upload-artifact@v4
+      with:
+        name: FootstepDetector-Windows-VST3
+        path: package/
+        retention-days: 30
+        
+    - name: Upload build logs (for debugging)
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: Windows-Debug-Complete
+        name: Windows-Build-Logs
         path: |
-          cmake_full_debug.log
           build/CMakeFiles/CMakeError.log
           build/CMakeFiles/CMakeOutput.log
         retention-days: 7
