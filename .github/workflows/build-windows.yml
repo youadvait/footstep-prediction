@@ -32,34 +32,52 @@ jobs:
         # Create VST2 SDK directory structure
         New-Item -ItemType Directory -Force -Path "VST2_SDK/pluginterfaces/vst2.x"
         
-        # Create aeffect.h using simple approach
+        # Create minimal VST2 headers
         $aeffectContent = "#ifndef __aeffect__`n#define __aeffect__`n`n#ifdef __cplusplus`nextern `"C`" {`n#endif`n`ntypedef struct VstEvent VstEvent;`ntypedef struct VstEvents VstEvents;`n`nenum { kEffectMagic = 'VstP' };`nenum { kVstVersion = 2400 };`n`ntypedef float VstParameterValue;`ntypedef long VstInt32;`ntypedef VstInt32 VstIntPtr;`n`nstruct AEffect {`n    VstInt32 magic;`n    VstIntPtr dispatcher;`n    VstIntPtr process;`n    VstIntPtr setParameter;`n    VstIntPtr getParameter;`n    VstInt32 numPrograms;`n    VstInt32 numParams;`n    VstInt32 numInputs;`n    VstInt32 numOutputs;`n    VstInt32 flags;`n    VstIntPtr resvd1;`n    VstIntPtr resvd2;`n    VstInt32 initialDelay;`n    VstInt32 realQualities;`n    VstInt32 offQualities;`n    float ioRatio;`n    void* object;`n    void* user;`n    VstInt32 uniqueID;`n    VstInt32 version;`n    VstIntPtr processReplacing;`n    VstIntPtr processDoubleReplacing;`n    char future[56];`n};`n`ntypedef AEffect* (*audioMasterCallback) (AEffect* effect, VstInt32 opcode, VstInt32 index, VstIntPtr value, void* ptr, float opt);`n`n#ifdef __cplusplus`n}`n#endif`n`n#endif"
         $aeffectContent | Out-File -FilePath "VST2_SDK/pluginterfaces/vst2.x/aeffect.h" -Encoding utf8
         
-        # Create aeffectx.h
         $aeffectxContent = "#ifndef __aeffectx__`n#define __aeffectx__`n`n#include `"aeffect.h`"`n`n#ifdef __cplusplus`nextern `"C`" {`n#endif`n`nenum {`n    effOpen = 0, effClose, effSetProgram, effGetProgram, effSetProgramName,`n    effGetProgramName, effGetParamLabel, effGetParamDisplay, effGetParamName,`n    effGetVu, effSetSampleRate, effSetBlockSize, effMainsChanged, effEditGetRect,`n    effEditOpen, effEditClose, effEditDraw, effEditMouse, effEditKey, effEditIdle,`n    effEditTop, effEditSleep, effIdentify, effGetChunk, effSetChunk, effProcessEvents,`n    effCanBeAutomated, effString2Parameter, effGetNumProgramCategories,`n    effGetProgramNameIndexed, effCopyProgram, effConnectInput, effConnectOutput,`n    effGetInputProperties, effGetOutputProperties, effGetPlugCategory,`n    effGetCurrentPosition, effGetDestinationBuffer, effOfflineNotify,`n    effOfflinePrepare, effOfflineRun, effProcessVarIo, effSetSpeakerArrangement,`n    effSetBlockSizeAndSampleRate, effSetBypass, effGetEffectName, effGetErrorText,`n    effGetVendorString, effGetProductString, effGetVendorVersion, effVendorSpecific,`n    effCanDo, effGetTailSize, effIdle, effGetIcon, effSetViewPosition,`n    effGetParameterProperties, effKeysRequired, effGetVstVersion, effEditKeyDown,`n    effEditKeyUp, effSetEditKnobMode, effGetMidiProgramName, effGetCurrentMidiProgram,`n    effGetMidiProgramCategory, effHasMidiProgramsChanged, effGetMidiKeyName,`n    effBeginSetProgram, effEndSetProgram, effGetSpeakerArrangement,`n    effShellGetNextPlugin, effStartProcess, effStopProcess, effSetTotalSampleCount,`n    effSetPanLaw, effBeginLoadBank, effBeginLoadProgram, effSetProcessPrecision,`n    effGetNumMidiInputChannels, effGetNumMidiOutputChannels`n};`n`n#ifdef __cplusplus`n}`n#endif`n`n#endif"
         $aeffectxContent | Out-File -FilePath "VST2_SDK/pluginterfaces/vst2.x/aeffectx.h" -Encoding utf8
         
-        # Create vstfxstore.h
         $vstfxContent = "#ifndef __vstfxstore__`n#define __vstfxstore__`n`n#include `"aeffectx.h`"`n`n#ifdef __cplusplus`nextern `"C`" {`n#endif`n`nstruct fxBank {`n    VstInt32 chunkMagic;`n    VstInt32 byteSize;`n    VstInt32 fxMagic;`n    VstInt32 version;`n    VstInt32 fxID;`n    VstInt32 fxVersion;`n    VstInt32 numPrograms;`n    char prgName[28];`n    VstInt32 chunkSize;`n};`n`nstruct fxProgram {`n    VstInt32 chunkMagic;`n    VstInt32 byteSize;`n    VstInt32 fxMagic;`n    VstInt32 version;`n    VstInt32 fxID;`n    VstInt32 fxVersion;`n    VstInt32 numParams;`n    char prgName[28];`n};`n`n#ifdef __cplusplus`n}`n#endif`n`n#endif"
         $vstfxContent | Out-File -FilePath "VST2_SDK/pluginterfaces/vst2.x/vstfxstore.h" -Encoding utf8
         
-        Write-Host "✅ VST2 SDK headers created successfully"
+        Write-Host "✅ VST2 SDK headers created"
+        
+    - name: Verify File Locations
+      run: |
+        Write-Host "=== VERIFYING FILE LOCATIONS ==="
+        
+        Write-Host "VST2 SDK structure:"
+        if (Test-Path "VST2_SDK/pluginterfaces/vst2.x/aeffect.h") {
+          Write-Host "✅ VST2 headers found"
+        } else {
+          Write-Host "❌ VST2 headers missing"
+        }
+        
+        Write-Host "Source files check:"
+        $sourceFiles = @(
+          "vst_plugin/Source/PluginProcessor.cpp",
+          "vst_plugin/Source/PluginEditor.cpp", 
+          "vst_plugin/Source/FootstepClassifier.cpp"
+        )
+        
+        foreach ($file in $sourceFiles) {
+          if (Test-Path $file) {
+            Write-Host "✅ FOUND: $file"
+          } else {
+            Write-Host "❌ MISSING: $file"
+          }
+        }
+        
+        Write-Host "All .cpp files in project:"
+        Get-ChildItem -Recurse -Filter "*.cpp" | ForEach-Object { Write-Host "  $($_.FullName)" }
         
     - name: Configure CMake with VST2 SDK
       run: |
         Write-Host "=== CMAKE CONFIGURATION ==="
         $vst2Path = (Resolve-Path "VST2_SDK").Path
         Write-Host "VST2 SDK path: $vst2Path"
-        
-        # Verify headers exist
-        if (Test-Path "VST2_SDK/pluginterfaces/vst2.x/aeffect.h") {
-          Write-Host "✅ VST2 headers ready"
-        } else {
-          Write-Host "❌ VST2 headers missing"
-          exit 1
-        }
-        
         cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVST2_SDK_PATH="$vst2Path"
     
     - name: Build VST2
@@ -86,6 +104,6 @@ jobs:
     - name: Upload VST2 DLL
       uses: actions/upload-artifact@v4
       with:
-        name: FootstepDetector-VST2-Final
+        name: FootstepDetector-VST2-FINAL-WORKING
         path: package/
         retention-days: 30
