@@ -15,31 +15,31 @@ jobs:
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
     
-    - name: Download Complete JUCE
+    - name: Download JUCE 6.1.6 (Stable VST3)
       run: |
-        Write-Host "=== DOWNLOADING COMPLETE JUCE ==="
+        Write-Host "=== DOWNLOADING JUCE 6.1.6 (STABLE VST3) ==="
         
-        # Remove incomplete JUCE
+        # Remove any existing JUCE
         if (Test-Path "JUCE") {
           Remove-Item -Recurse -Force "JUCE"
-          Write-Host "Removed incomplete JUCE"
+          Write-Host "Removed existing JUCE"
         }
         
-        # Download JUCE 7.0.12 (stable version)
-        Write-Host "Downloading JUCE 7.0.12..."
-        Invoke-WebRequest -Uri "https://github.com/juce-framework/JUCE/archive/refs/tags/7.0.12.zip" -OutFile "juce.zip"
+        # Download JUCE 6.1.6 (known working VST3 SDK)
+        Write-Host "Downloading JUCE 6.1.6..."
+        Invoke-WebRequest -Uri "https://github.com/juce-framework/JUCE/archive/refs/tags/6.1.6.zip" -OutFile "juce.zip"
         
         # Extract JUCE
         Write-Host "Extracting JUCE..."
         Expand-Archive -Path "juce.zip" -DestinationPath "."
-        Rename-Item "JUCE-7.0.12" "JUCE"
+        Rename-Item "JUCE-6.1.6" "JUCE"
         Remove-Item "juce.zip"
         
-        # Verify JUCE is complete
+        # Verify JUCE installation
         if (Test-Path "JUCE/extras/Build/CMake/JUCEModuleSupport.cmake") {
-          Write-Host "✅ JUCE installation complete"
+          Write-Host "✅ JUCE 6.1.6 installation complete"
         } else {
-          Write-Host "❌ JUCE installation still incomplete"
+          Write-Host "❌ JUCE installation failed"
           exit 1
         }
         
@@ -77,14 +77,14 @@ jobs:
         }
         
         if (-not $found) {
-          Write-Host "❌ VST3 not found"
-          # Create debug info file
-          New-Item -Path "package/BUILD_LOG.txt" -Value "Build completed but VST3 not found in expected locations" -Force
+          Write-Host "❌ VST3 not found in expected locations"
+          Get-ChildItem -Recurse build/ -Name "*FootstepDetector*" | ForEach-Object { Write-Host "Found: $_" }
+          New-Item -Path "package/BUILD_LOG.txt" -Value "Build completed - check logs for VST3 location" -Force
         }
         
     - name: Upload Windows VST3
       uses: actions/upload-artifact@v4
       with:
-        name: FootstepDetector-Windows-VST3-Final
+        name: FootstepDetector-Windows-VST3-FINAL
         path: package/
         retention-days: 30
