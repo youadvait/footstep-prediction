@@ -31,13 +31,24 @@ jobs:
         Rename-Item "JUCE-6.1.6" "JUCE"
         Remove-Item "juce.zip"
         
-        # Download VST2 SDK (from archive.org backup)
-        Write-Host "Downloading VST2 SDK..."
-        Invoke-WebRequest -Uri "https://archive.org/download/VST2_SDK/VST2_SDK.zip" -OutFile "vst2_sdk.zip"
+        # Download VST2 SDK from working archive.org link
+        Write-Host "Downloading VST2 SDK from archive.org..."
+        Invoke-WebRequest -Uri "https://archive.org/download/VST2SDK/vst_sdk2_4_rev2.zip" -OutFile "vst2_sdk.zip"
         Expand-Archive -Path "vst2_sdk.zip" -DestinationPath "."
         Remove-Item "vst2_sdk.zip"
         
-        # Verify downloads
+        # The SDK extracts to a folder, find it
+        $sdkFolder = Get-ChildItem -Directory | Where-Object { $_.Name -like "*vst*" -or $_.Name -like "*VST*" } | Select-Object -First 1
+        if ($sdkFolder) {
+          Rename-Item $sdkFolder.Name "VST2_SDK"
+          Write-Host "✅ VST2 SDK extracted to VST2_SDK"
+        } else {
+          Write-Host "❌ VST2 SDK folder not found after extraction"
+          Get-ChildItem -Directory | ForEach-Object { Write-Host "Found directory: $($_.Name)" }
+          exit 1
+        }
+        
+        # Verify both downloads
         if (Test-Path "JUCE/extras/Build/CMake/JUCEModuleSupport.cmake") {
           Write-Host "✅ JUCE 6.1.6 ready"
         } else {
@@ -47,8 +58,9 @@ jobs:
         
         if (Test-Path "VST2_SDK") {
           Write-Host "✅ VST2 SDK ready"
+          Get-ChildItem "VST2_SDK" | Select-Object -First 5 | ForEach-Object { Write-Host "  - $($_.Name)" }
         } else {
-          Write-Host "❌ VST2 SDK download failed"
+          Write-Host "❌ VST2 SDK not found"
           exit 1
         }
         
@@ -89,15 +101,25 @@ jobs:
         }
         
         if (-not $found) {
-          Write-Host "❌ VST2 DLL not found - checking all DLLs:"
+          Write-Host "❌ VST2 DLL not found - searching all DLLs:"
           Get-ChildItem -Recurse build/ -Name "*.dll" | ForEach-Object { Write-Host "Found DLL: $_" }
-          # Create placeholder
+          
+          # Check if any FootstepDetector DLL exists
+          $anyDll = Get-ChildItem -Recurse build/ -Name "*FootstepDetector*.dll" | Select-Object -First 1
+          if ($anyDll) {
+            Write-Host "✅ Found FootstepDetector DLL at: $($anyDll.FullName)"
+            Copy-Item $anyDll.FullName package/FootstepDetector.dll
+            $found = $true
+          }
+        }
+        
+        if (-not $found) {
           New-Item -Path "package/VST2_BUILD_FAILED.txt" -Value "VST2 build completed but DLL not found" -Force
         }
         
     - name: Upload VST2 DLL
       uses: actions/upload-artifact@v4
       with:
-        name: FootstepDetector-VST2-EqualizerAPO
+        name: FootstepDetector-VST2-EqualizerAPO-FINAL
         path: package/
         retention-days: 30

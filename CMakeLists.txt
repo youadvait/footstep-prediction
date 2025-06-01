@@ -15,7 +15,7 @@ endif()
 
 add_subdirectory(JUCE)
 
-# Set VST2 SDK path for JUCE
+# Set VST2 SDK path for JUCE before adding plugin
 if(DEFINED VST2_SDK_PATH)
     juce_set_vst2_sdk_path("${VST2_SDK_PATH}")
 endif()
@@ -25,7 +25,7 @@ juce_add_plugin(FootstepDetector
     COMPANY_NAME "FootstepTech"
     PLUGIN_MANUFACTURER_CODE FtTc
     PLUGIN_CODE FsDt
-    FORMATS VST   # VST2 format
+    FORMATS VST   # VST2 format for EqualizerAPO
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
