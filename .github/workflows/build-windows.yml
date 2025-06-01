@@ -11,39 +11,119 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    
-    - name: Setup MSVC
-      uses: microsoft/setup-msbuild@v2
-    
-    - name: Configure CMake
+      
+    - name: Debug - Check JUCE properly
       run: |
-        cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
-    
-    - name: Build VST3
-      run: |
-        cmake --build build --config Release --target FootstepDetector_VST3
-    
-    - name: List build output (debug)
-      run: |
-        Get-ChildItem -Recurse build/ -Name "*.vst3" | ForEach-Object { Write-Host "Found VST3: $_" }
-    
-    - name: Package VST3
-      run: |
-        New-Item -ItemType Directory -Force -Path package
-        $vst3Path = "build/FootstepDetector_artefacts/Release/VST3/FootstepDetector.vst3"
-        if (Test-Path $vst3Path) {
-          Copy-Item -Recurse $vst3Path package/
-          Write-Host "✅ VST3 packaged successfully"
+        Write-Host "=== DETAILED JUCE CHECK ==="
+        if (Test-Path "JUCE") {
+          Write-Host "✅ JUCE directory exists"
+          Write-Host "JUCE directory size: $((Get-ChildItem JUCE -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB) MB"
+          
+          if (Test-Path "JUCE/CMakeLists.txt") {
+            Write-Host "✅ JUCE CMakeLists.txt exists"
+            Write-Host "JUCE CMakeLists.txt size: $((Get-Item 'JUCE/CMakeLists.txt').Length) bytes"
+          } else {
+            Write-Host "❌ JUCE CMakeLists.txt missing"
+          }
+          
+          if (Test-Path "JUCE/modules") {
+            $moduleCount = (Get-ChildItem "JUCE/modules" -Directory).Count
+            Write-Host "✅ JUCE modules directory exists with $moduleCount modules"
+          } else {
+            Write-Host "❌ JUCE modules directory missing"
+          }
         } else {
-          Write-Host "❌ VST3 not found at: $vst3Path"
-          Get-ChildItem -Recurse build/ -Name "*FootstepDetector*" | ForEach-Object { Write-Host "Alternative: $_" }
+          Write-Host "❌ JUCE directory completely missing"
+          Write-Host "Repository contents:"
+          Get-ChildItem . -Name | Sort-Object | ForEach-Object { Write-Host "  - $_" }
         }
         
-    - name: Upload Windows VST3
+    - name: Manually download JUCE (if missing)
+      run: |
+        if (-not (Test-Path "JUCE/CMakeLists.txt")) {
+          Write-Host "JUCE missing or incomplete - downloading manually..."
+          Invoke-WebRequest -Uri "https://github.com/juce-framework/JUCE/archive/refs/tags/7.0.12.zip" -OutFile "juce.zip"
+          Expand-Archive -Path "juce.zip" -DestinationPath "."
+          if (Test-Path "JUCE-7.0.12") {
+            Remove-Item -Recurse -Force "JUCE" -ErrorAction SilentlyContinue
+            Rename-Item "JUCE-7.0.12" "JUCE"
+            Write-Host "✅ JUCE downloaded and extracted"
+          }
+        }
+        
+    - name: Verify project structure
+      run: |
+        Write-Host "=== PROJECT STRUCTURE ==="
+        Write-Host "Root files:"
+        Get-ChildItem . -Name | Sort-Object | ForEach-Object { Write-Host "  - $_" }
+        Write-Host ""
+        Write-Host "Source files:"
+        if (Test-Path "vst_plugin/Source") {
+          Get-ChildItem "vst_plugin/Source" -Name | ForEach-Object { Write-Host "  - vst_plugin/Source/$_" }
+        } else {
+          Write-Host "  ❌ vst_plugin/Source directory missing"
+        }
+        Write-Host ""
+        Write-Host "CMakeLists.txt content (first 20 lines):"
+        Get-Content "CMakeLists.txt" -TotalCount 20 | ForEach-Object { Write-Host "  $_" }
+        
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Configure CMake (with maximum verbosity)
+      run: |
+        Write-Host "=== CMAKE CONFIGURATION ==="
+        Write-Host "CMake version:"
+        cmake --version
+        Write-Host ""
+        Write-Host "Starting CMake configuration with maximum verbosity..."
+        Write-Host ""
+        cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release --debug-output --verbose 2>&1 | Tee-Object -FilePath cmake_output.log
+        Write-Host ""
+        Write-Host "=== CMAKE CONFIGURATION COMPLETE ==="
+        Write-Host "Exit code: $LASTEXITCODE"
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host ""
+          Write-Host "❌ CMAKE FAILED - Full output:"
+          Get-Content cmake_output.log
+          exit 1
+        }
+      shell: powershell
+      continue-on-error: false
+    
+    - name: Build VST3 (if CMake succeeded)
+      run: |
+        Write-Host "=== CMAKE BUILD ==="
+        cmake --build build --config Release --target FootstepDetector_VST3 --verbose
+    
+    - name: Find VST3 output
+      run: |
+        Write-Host "=== SEARCHING FOR VST3 ==="
+        Get-ChildItem -Recurse build/ -Name "*.vst3" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "Found VST3: $_" }
+        Get-ChildItem -Recurse build/ -Name "*FootstepDetector*" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "Found FootstepDetector: $_" }
+    
+    - name: Package VST3 (if found)
+      run: |
+        New-Item -ItemType Directory -Force -Path package
+        $vst3Files = Get-ChildItem -Recurse build/ -Name "FootstepDetector.vst3" -ErrorAction SilentlyContinue
+        if ($vst3Files.Count -gt 0) {
+          $sourcePath = $vst3Files[0]
+          Copy-Item -Recurse (Join-Path "build" $sourcePath) package/
+          Write-Host "✅ VST3 packaged: $sourcePath"
+        } else {
+          Write-Host "❌ No VST3 found to package"
+          # Create empty package to avoid upload errors
+          New-Item -Path "package/README.txt" -Value "No VST3 was built" -Force
+        }
+        
+    - name: Upload results (success or failure)
       uses: actions/upload-artifact@v4
+      if: always()
       with:
-        name: FootstepDetector-Windows-VST3
-        path: package/
-        retention-days: 30
+        name: FootstepDetector-Windows-Build-Debug
+        path: |
+          package/
+          cmake_output.log
+          build/CMakeFiles/CMakeError.log
+          build/CMakeFiles/CMakeOutput.log
+        retention-days: 7
