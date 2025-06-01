@@ -12,94 +12,46 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Debug - Check project structure
-      run: |
-        Write-Host "=== PROJECT STRUCTURE DEBUG ==="
-        Write-Host "Root files:"
-        Get-ChildItem . -Name | Sort-Object | ForEach-Object { Write-Host "  - $_" }
-        
-        Write-Host ""
-        Write-Host "JUCE check:"
-        if (Test-Path "JUCE") {
-          Write-Host "  ✅ JUCE exists"
-          if (Test-Path "JUCE/CMakeLists.txt") {
-            Write-Host "  ✅ JUCE/CMakeLists.txt exists"
-            Write-Host "  JUCE CMakeLists.txt first 10 lines:"
-            Get-Content "JUCE/CMakeLists.txt" -TotalCount 10 | ForEach-Object { Write-Host "    $_" }
-          } else {
-            Write-Host "  ❌ JUCE/CMakeLists.txt missing"
-          }
-        } else {
-          Write-Host "  ❌ JUCE directory missing"
-        }
-        
-        Write-Host ""
-        Write-Host "Source files check:"
-        if (Test-Path "vst_plugin/Source") {
-          Get-ChildItem "vst_plugin/Source" -Name | ForEach-Object { Write-Host "  - vst_plugin/Source/$_" }
-        } else {
-          Write-Host "  ❌ vst_plugin/Source missing"
-        }
-        
-        Write-Host ""
-        Write-Host "CMakeLists.txt content:"
-        if (Test-Path "CMakeLists.txt") {
-          Get-Content "CMakeLists.txt" | ForEach-Object { Write-Host "  $_" }
-        } else {
-          Write-Host "  ❌ CMakeLists.txt missing"
-        }
-        
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
     
-    - name: Raw CMake test
+    - name: Download Complete JUCE
       run: |
-        Write-Host "=== RAW CMAKE TEST ==="
-        Write-Host "CMake version:"
-        cmake --version
+        Write-Host "=== DOWNLOADING COMPLETE JUCE ==="
         
-        Write-Host ""
-        Write-Host "Testing basic CMake syntax check:"
-        cmake --check-system-vars 2>&1 | Write-Host
-        
-        Write-Host ""
-        Write-Host "Testing project directory recognition:"
-        if (Test-Path "CMakeLists.txt") {
-          Write-Host "CMakeLists.txt exists, size: $((Get-Item 'CMakeLists.txt').Length) bytes"
+        # Remove incomplete JUCE
+        if (Test-Path "JUCE") {
+          Remove-Item -Recurse -Force "JUCE"
+          Write-Host "Removed incomplete JUCE"
         }
         
-    - name: Configure CMake with FULL error capture
-      run: |
-        Write-Host "=== CMAKE CONFIGURATION WITH FULL ERROR CAPTURE ==="
-        $ErrorActionPreference = "Continue"
+        # Download JUCE 7.0.12 (stable version)
+        Write-Host "Downloading JUCE 7.0.12..."
+        Invoke-WebRequest -Uri "https://github.com/juce-framework/JUCE/archive/refs/tags/7.0.12.zip" -OutFile "juce.zip"
         
-        try {
-          Write-Host "Running: cmake -B build -G `"Visual Studio 17 2022`" -A x64"
-          $output = cmake -B build -G "Visual Studio 17 2022" -A x64 2>&1
-          Write-Host "CMAKE OUTPUT:"
-          $output | ForEach-Object { Write-Host $_ }
-          
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host ""
-            Write-Host "❌ CMAKE FAILED with exit code: $LASTEXITCODE"
-            Write-Host ""
-            Write-Host "Full cmake output was:"
-            $output | ForEach-Object { Write-Host "  $_" }
-            exit 1
-          } else {
-            Write-Host "✅ CMAKE SUCCEEDED"
-          }
-          
-        } catch {
-          Write-Host "❌ CMAKE EXCEPTION: $($_.Exception.Message)"
-          Write-Host "Exception details: $($_.Exception)"
+        # Extract JUCE
+        Write-Host "Extracting JUCE..."
+        Expand-Archive -Path "juce.zip" -DestinationPath "."
+        Rename-Item "JUCE-7.0.12" "JUCE"
+        Remove-Item "juce.zip"
+        
+        # Verify JUCE is complete
+        if (Test-Path "JUCE/extras/Build/CMake/JUCEModuleSupport.cmake") {
+          Write-Host "✅ JUCE installation complete"
+        } else {
+          Write-Host "❌ JUCE installation still incomplete"
           exit 1
         }
         
-    - name: Build VST3 (if CMake succeeded)
+    - name: Configure CMake
       run: |
-        Write-Host "=== VST3 BUILD ==="
-        cmake --build build --config Release --target FootstepDetector_VST3
+        Write-Host "=== CMAKE CONFIGURATION ==="
+        cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+    
+    - name: Build VST3
+      run: |
+        Write-Host "=== BUILDING VST3 ==="
+        cmake --build build --config Release --target FootstepDetector_VST3 --verbose
     
     - name: Find and package VST3
       run: |
@@ -107,19 +59,32 @@ jobs:
         Get-ChildItem -Recurse build/ -Name "*.vst3" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "Found: $_" }
         
         New-Item -ItemType Directory -Force -Path package
-        $vst3Files = Get-ChildItem -Recurse build/ -Name "FootstepDetector.vst3" -ErrorAction SilentlyContinue
-        if ($vst3Files.Count -gt 0) {
-          Copy-Item -Recurse (Join-Path "build" $vst3Files[0]) package/
-          Write-Host "✅ VST3 packaged"
-        } else {
-          Write-Host "❌ No VST3 found"
-          New-Item -Path "package/NO_VST3_BUILT.txt" -Value "Build completed but no VST3 found" -Force
+        
+        # Look for VST3 in build output
+        $vst3Paths = @(
+          "build/FootstepDetector_artefacts/Release/VST3/FootstepDetector.vst3",
+          "build/Release/VST3/FootstepDetector.vst3"
+        )
+        
+        $found = $false
+        foreach ($path in $vst3Paths) {
+          if (Test-Path $path) {
+            Write-Host "✅ Found VST3 at: $path"
+            Copy-Item -Recurse $path package/
+            $found = $true
+            break
+          }
         }
         
-    - name: Upload results
+        if (-not $found) {
+          Write-Host "❌ VST3 not found"
+          # Create debug info file
+          New-Item -Path "package/BUILD_LOG.txt" -Value "Build completed but VST3 not found in expected locations" -Force
+        }
+        
+    - name: Upload Windows VST3
       uses: actions/upload-artifact@v4
-      if: always()
       with:
-        name: Windows-Build-Results
+        name: FootstepDetector-Windows-VST3-Final
         path: package/
-        retention-days: 7
+        retention-days: 30
