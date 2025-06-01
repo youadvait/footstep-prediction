@@ -1,0 +1,17 @@
+# Build directories
+data/
+datasets1/
+build/
+.DS_Store
+*.user
+*.xcuserstate
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System files
+Thumbs.db
+.DS_Store
