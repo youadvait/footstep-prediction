@@ -8,14 +8,24 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+# Set VST2 SDK path if provided
+if(DEFINED VST2_SDK_PATH)
+    message(STATUS "VST2 SDK path set to: ${VST2_SDK_PATH}")
+endif()
+
 add_subdirectory(JUCE)
+
+# Set VST2 SDK path for JUCE
+if(DEFINED VST2_SDK_PATH)
+    juce_set_vst2_sdk_path("${VST2_SDK_PATH}")
+endif()
 
 juce_add_plugin(FootstepDetector
     PRODUCT_NAME "FootstepDetector"
     COMPANY_NAME "FootstepTech"
     PLUGIN_MANUFACTURER_CODE FtTc
     PLUGIN_CODE FsDt
-    FORMATS VST   # CHANGED: VST2 instead of VST3
+    FORMATS VST   # VST2 format
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -53,7 +63,7 @@ target_compile_definitions(FootstepDetector PRIVATE
     JUCE_DISPLAY_SPLASH_SCREEN=0
     JUCE_REPORT_APP_USAGE=0
     JUCE_MODAL_LOOPS_PERMITTED=1
-    # Enable VST2 for EqualizerAPO compatibility
+    # VST2 specific settings
     JucePlugin_Build_VST=1
     JUCE_VST3_CAN_REPLACE_VST2=0
 )
