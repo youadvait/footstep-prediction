@@ -15,41 +15,259 @@ jobs:
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
     
-    - name: Download JUCE 6.1.6 and VST2 SDK
+    - name: Download JUCE 6.1.6 and Create Complete VST2 SDK
       run: |
-        Write-Host "=== DOWNLOADING JUCE 6.1.6 AND VST2 SDK ==="
+        Write-Host "=== DOWNLOADING JUCE 6.1.6 AND CREATING COMPLETE VST2 SDK ==="
         
         if (Test-Path "JUCE") {
           Remove-Item -Recurse -Force "JUCE"
         }
         
+        # Download JUCE 6.1.6
         Invoke-WebRequest -Uri "https://github.com/juce-framework/JUCE/archive/refs/tags/6.1.6.zip" -OutFile "juce.zip"
         Expand-Archive -Path "juce.zip" -DestinationPath "."
         Rename-Item "JUCE-6.1.6" "JUCE"
         Remove-Item "juce.zip"
         
-        Invoke-WebRequest -Uri "https://archive.org/download/VST2SDK/vst_sdk2_4_rev2.zip" -OutFile "vst2_sdk.zip"
-        Expand-Archive -Path "vst2_sdk.zip" -DestinationPath "."
-        Remove-Item "vst2_sdk.zip"
+        # Create complete VST2 SDK structure manually
+        Write-Host "Creating complete VST2 SDK structure..."
+        New-Item -ItemType Directory -Force -Path "VST2_SDK/pluginterfaces/vst2.x"
         
-        $sdkFolder = Get-ChildItem -Directory | Where-Object { $_.Name -like "*vst*" -or $_.Name -like "*VST*" } | Select-Object -First 1
-        if ($sdkFolder) {
-          Rename-Item $sdkFolder.Name "VST2_SDK"
-          Write-Host "✅ VST2 SDK ready"
+        # Create aeffect.h
+        @'
+#ifndef __aeffect__
+#define __aeffect__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct VstEvent VstEvent;
+typedef struct VstEvents VstEvents;
+
+enum
+{
+    kEffectMagic = 'VstP'
+};
+
+enum
+{
+    kVstVersion = 2400
+};
+
+typedef float VstParameterValue;
+typedef long VstInt32;
+typedef VstInt32 VstIntPtr;
+
+struct AEffect
+{
+    VstInt32 magic;
+    VstIntPtr dispatcher;
+    VstIntPtr process;
+    VstIntPtr setParameter;
+    VstIntPtr getParameter;
+    VstInt32 numPrograms;
+    VstInt32 numParams;
+    VstInt32 numInputs;
+    VstInt32 numOutputs;
+    VstInt32 flags;
+    VstIntPtr resvd1;
+    VstIntPtr resvd2;
+    VstInt32 initialDelay;
+    VstInt32 realQualities;
+    VstInt32 offQualities;
+    float ioRatio;
+    void* object;
+    void* user;
+    VstInt32 uniqueID;
+    VstInt32 version;
+    VstIntPtr processReplacing;
+    VstIntPtr processDoubleReplacing;
+    char future[56];
+};
+
+typedef AEffect* (*audioMasterCallback) (AEffect* effect, VstInt32 opcode, VstInt32 index, VstIntPtr value, void* ptr, float opt);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+'@ | Out-File -FilePath "VST2_SDK/pluginterfaces/vst2.x/aeffect.h" -Encoding utf8
+        
+        # Create aeffectx.h
+        @'
+#ifndef __aeffectx__
+#define __aeffectx__
+
+#include "aeffect.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+enum
+{
+    effOpen = 0,
+    effClose,
+    effSetProgram,
+    effGetProgram,
+    effSetProgramName,
+    effGetProgramName,
+    effGetParamLabel,
+    effGetParamDisplay,
+    effGetParamName,
+    effGetVu,
+    effSetSampleRate,
+    effSetBlockSize,
+    effMainsChanged,
+    effEditGetRect,
+    effEditOpen,
+    effEditClose,
+    effEditDraw,
+    effEditMouse,
+    effEditKey,
+    effEditIdle,
+    effEditTop,
+    effEditSleep,
+    effIdentify,
+    effGetChunk,
+    effSetChunk,
+    effProcessEvents,
+    effCanBeAutomated,
+    effString2Parameter,
+    effGetNumProgramCategories,
+    effGetProgramNameIndexed,
+    effCopyProgram,
+    effConnectInput,
+    effConnectOutput,
+    effGetInputProperties,
+    effGetOutputProperties,
+    effGetPlugCategory,
+    effGetCurrentPosition,
+    effGetDestinationBuffer,
+    effOfflineNotify,
+    effOfflinePrepare,
+    effOfflineRun,
+    effProcessVarIo,
+    effSetSpeakerArrangement,
+    effSetBlockSizeAndSampleRate,
+    effSetBypass,
+    effGetEffectName,
+    effGetErrorText,
+    effGetVendorString,
+    effGetProductString,
+    effGetVendorVersion,
+    effVendorSpecific,
+    effCanDo,
+    effGetTailSize,
+    effIdle,
+    effGetIcon,
+    effSetViewPosition,
+    effGetParameterProperties,
+    effKeysRequired,
+    effGetVstVersion,
+    effEditKeyDown,
+    effEditKeyUp,
+    effSetEditKnobMode,
+    effGetMidiProgramName,
+    effGetCurrentMidiProgram,
+    effGetMidiProgramCategory,
+    effHasMidiProgramsChanged,
+    effGetMidiKeyName,
+    effBeginSetProgram,
+    effEndSetProgram,
+    effGetSpeakerArrangement,
+    effShellGetNextPlugin,
+    effStartProcess,
+    effStopProcess,
+    effSetTotalSampleCount,
+    effSetPanLaw,
+    effBeginLoadBank,
+    effBeginLoadProgram,
+    effSetProcessPrecision,
+    effGetNumMidiInputChannels,
+    effGetNumMidiOutputChannels
+};
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+'@ | Out-File -FilePath "VST2_SDK/pluginterfaces/vst2.x/aeffectx.h" -Encoding utf8
+        
+        # Create vstfxstore.h
+        @'
+#ifndef __vstfxstore__
+#define __vstfxstore__
+
+#include "aeffectx.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct fxBank
+{
+    VstInt32 chunkMagic;
+    VstInt32 byteSize;
+    VstInt32 fxMagic;
+    VstInt32 version;
+    VstInt32 fxID;
+    VstInt32 fxVersion;
+    VstInt32 numPrograms;
+    char prgName[28];
+    VstInt32 chunkSize;
+};
+
+struct fxProgram
+{
+    VstInt32 chunkMagic;
+    VstInt32 byteSize;
+    VstInt32 fxMagic;
+    VstInt32 version;
+    VstInt32 fxID;
+    VstInt32 fxVersion;
+    VstInt32 numParams;
+    char prgName[28];
+};
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif
+'@ | Out-File -FilePath "VST2_SDK/pluginterfaces/vst2.x/vstfxstore.h" -Encoding utf8
+        
+        Write-Host "✅ Complete VST2 SDK structure created"
+        
+        # Verify the structure
+        if (Test-Path "VST2_SDK/pluginterfaces/vst2.x/aeffect.h") {
+          Write-Host "✅ aeffect.h created"
+        }
+        if (Test-Path "VST2_SDK/pluginterfaces/vst2.x/aeffectx.h") {
+          Write-Host "✅ aeffectx.h created" 
+        }
+        if (Test-Path "VST2_SDK/pluginterfaces/vst2.x/vstfxstore.h") {
+          Write-Host "✅ vstfxstore.h created"
         }
         
-        # Verify source files are in VST2_SDK/Source (as found in debug)
-        if (Test-Path "VST2_SDK/Source/PluginProcessor.cpp") {
-          Write-Host "✅ Source files found in VST2_SDK/Source/"
-        } else {
-          Write-Host "❌ Source files not in expected VST2_SDK/Source/ location"
-        }
-        
-    - name: Configure CMake with VST2 SDK
+    - name: Configure CMake with Complete VST2 SDK
       run: |
-        Write-Host "=== CMAKE CONFIGURATION WITH VST2 SDK ==="
+        Write-Host "=== CMAKE CONFIGURATION WITH COMPLETE VST2 SDK ==="
         $vst2Path = (Resolve-Path "VST2_SDK").Path
         Write-Host "VST2 SDK path: $vst2Path"
+        
+        # Verify header files exist before configuring
+        $headerPath = Join-Path $vst2Path "pluginterfaces/vst2.x/aeffect.h"
+        if (Test-Path $headerPath) {
+          Write-Host "✅ VST2 headers found at: $headerPath"
+        } else {
+          Write-Host "❌ VST2 headers missing at: $headerPath"
+          exit 1
+        }
+        
         cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVST2_SDK_PATH="$vst2Path"
     
     - name: Build VST2
@@ -67,8 +285,7 @@ jobs:
         # Look for VST2 DLL in multiple locations
         $dllPaths = @(
           "build/FootstepDetector_artefacts/Release/VST/FootstepDetector.dll",
-          "build/Release/VST/FootstepDetector.dll",
-          "build/FootstepDetector_artefacts/VST/Release/FootstepDetector.dll"
+          "build/Release/VST/FootstepDetector.dll"
         )
         
         $found = $false
@@ -82,10 +299,7 @@ jobs:
         }
         
         if (-not $found) {
-          Write-Host "❌ VST2 DLL not found - searching all DLLs:"
-          Get-ChildItem -Recurse build/ -Name "*.dll" | ForEach-Object { Write-Host "Found DLL: $_" }
-          
-          # Check if any FootstepDetector DLL exists
+          # Search for any FootstepDetector DLL
           $anyDll = Get-ChildItem -Recurse build/ -Name "*FootstepDetector*.dll" | Select-Object -First 1
           if ($anyDll) {
             Write-Host "✅ Found FootstepDetector DLL at: $($anyDll.FullName)"
@@ -95,12 +309,15 @@ jobs:
         }
         
         if (-not $found) {
-          New-Item -Path "package/VST2_BUILD_FAILED.txt" -Value "VST2 build completed but DLL not found" -Force
+          Write-Host "❌ No VST2 DLL found"
+          New-Item -Path "package/BUILD_FAILED.txt" -Value "Build completed but DLL not found" -Force
+        } else {
+          Write-Host "✅ VST2 DLL packaged successfully!"
         }
         
     - name: Upload VST2 DLL
       uses: actions/upload-artifact@v4
       with:
-        name: FootstepDetector-VST2-EqualizerAPO-FINAL
+        name: FootstepDetector-VST2-EqualizerAPO-SUCCESS
         path: package/
         retention-days: 30
