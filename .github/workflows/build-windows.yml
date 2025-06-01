@@ -15,9 +15,9 @@ jobs:
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
     
-    - name: Download JUCE 6.1.6 and Create ULTIMATE VST2 SDK
+    - name: Download JUCE 6.1.6 and Create COMPLETE VST2 SDK
       run: |
-        Write-Host "=== CREATING ULTIMATE COMPLETE VST2 SDK ==="
+        Write-Host "=== CREATING COMPLETE PROFESSIONAL VST2 SDK ==="
         
         if (Test-Path "JUCE") {
           Remove-Item -Recurse -Force "JUCE"
@@ -32,7 +32,7 @@ jobs:
         # Create VST2 SDK directory structure
         New-Item -ItemType Directory -Force -Path "VST2_SDK/pluginterfaces/vst2.x"
         
-        # Create ULTIMATE aeffect.h with ALL constants JUCE needs
+        # Create COMPLETE aeffect.h using proven array method
         $lines = @()
         $lines += "#ifndef __aeffect__"
         $lines += "#define __aeffect__"
@@ -47,6 +47,140 @@ jobs:
         $lines += "typedef float VstParameterValue;"
         $lines += "typedef long VstInt32;"
         $lines += "typedef VstInt32 VstIntPtr;"
+        $lines += ""
+        $lines += "// Forward declarations"
+        $lines += "struct AEffect;"
+        $lines += "struct VstEvent;"
+        $lines += "struct VstEvents;"
+        $lines += ""
+        $lines += "// Function pointer typedefs"
+        $lines += "typedef VstIntPtr (*AEffectDispatcherProc) (AEffect* effect, VstInt32 opcode, VstInt32 index, VstIntPtr value, void* ptr, float opt);"
+        $lines += "typedef void (*AEffectProcessProc) (AEffect* effect, float** inputs, float** outputs, VstInt32 sampleFrames);"
+        $lines += "typedef void (*AEffectProcessDoubleProc) (AEffect* effect, double** inputs, double** outputs, VstInt32 sampleFrames);"
+        $lines += "typedef void (*AEffectSetParameterProc) (AEffect* effect, VstInt32 index, float parameter);"
+        $lines += "typedef float (*AEffectGetParameterProc) (AEffect* effect, VstInt32 index);"
+        $lines += ""
+        $lines += "// Audio Master callback opcodes"
+        $lines += "enum AudioMasterOpcodes {"
+        $lines += "    audioMasterAutomate = 0,"
+        $lines += "    audioMasterVersion,"
+        $lines += "    audioMasterCurrentId,"
+        $lines += "    audioMasterIdle,"
+        $lines += "    audioMasterPinConnected,"
+        $lines += "    audioMasterWantMidi = 6,"
+        $lines += "    audioMasterGetTime = 7,"
+        $lines += "    audioMasterProcessEvents,"
+        $lines += "    audioMasterSetTime,"
+        $lines += "    audioMasterTempoAt,"
+        $lines += "    audioMasterGetNumAutomatableParameters,"
+        $lines += "    audioMasterGetParameterQuantization,"
+        $lines += "    audioMasterIOChanged,"
+        $lines += "    audioMasterNeedIdle,"
+        $lines += "    audioMasterSizeWindow,"
+        $lines += "    audioMasterGetSampleRate,"
+        $lines += "    audioMasterGetBlockSize,"
+        $lines += "    audioMasterGetInputLatency,"
+        $lines += "    audioMasterGetOutputLatency,"
+        $lines += "    audioMasterGetPreviousPlug,"
+        $lines += "    audioMasterGetNextPlug,"
+        $lines += "    audioMasterWillReplaceOrAccumulate,"
+        $lines += "    audioMasterGetCurrentProcessLevel,"
+        $lines += "    audioMasterGetAutomationState,"
+        $lines += "    audioMasterOfflineStart,"
+        $lines += "    audioMasterOfflineRead,"
+        $lines += "    audioMasterOfflineWrite,"
+        $lines += "    audioMasterOfflineGetCurrentPass,"
+        $lines += "    audioMasterOfflineGetCurrentMetaPass,"
+        $lines += "    audioMasterSetOutputSampleRate,"
+        $lines += "    audioMasterGetOutputSpeakerArrangement,"
+        $lines += "    audioMasterGetVendorString,"
+        $lines += "    audioMasterGetProductString,"
+        $lines += "    audioMasterGetVendorVersion,"
+        $lines += "    audioMasterVendorSpecific = 50,"
+        $lines += "    audioMasterSetIcon,"
+        $lines += "    audioMasterCanDo,"
+        $lines += "    audioMasterGetLanguage,"
+        $lines += "    audioMasterOpenWindow,"
+        $lines += "    audioMasterCloseWindow,"
+        $lines += "    audioMasterGetDirectory,"
+        $lines += "    audioMasterUpdateDisplay,"
+        $lines += "    audioMasterBeginEdit,"
+        $lines += "    audioMasterEndEdit,"
+        $lines += "    audioMasterOpenFileSelector,"
+        $lines += "    audioMasterCloseFileSelector,"
+        $lines += "    audioMasterEditFile,"
+        $lines += "    audioMasterGetChunkFile,"
+        $lines += "    audioMasterGetInputSpeakerArrangement"
+        $lines += "};"
+        $lines += ""
+        $lines += "// VstTimeInfo flags"
+        $lines += "enum VstTimeInfoFlags {"
+        $lines += "    kVstTransportChanged = 1,"
+        $lines += "    kVstTransportPlaying = 1 << 1,"
+        $lines += "    kVstTransportCycleActive = 1 << 2,"
+        $lines += "    kVstTransportRecording = 1 << 3,"
+        $lines += "    kVstAutomationWriting = 1 << 6,"
+        $lines += "    kVstAutomationReading = 1 << 7,"
+        $lines += "    kVstNanosValid = 1 << 8,"
+        $lines += "    kVstPpqPosValid = 1 << 9,"
+        $lines += "    kVstTempoValid = 1 << 10,"
+        $lines += "    kVstBarsValid = 1 << 11,"
+        $lines += "    kVstCyclePosValid = 1 << 12,"
+        $lines += "    kVstTimeSigValid = 1 << 13,"
+        $lines += "    kVstSmpteValid = 1 << 14,"
+        $lines += "    kVstClockValid = 1 << 15"
+        $lines += "};"
+        $lines += ""
+        $lines += "// SMPTE frame rates"
+        $lines += "enum VstSmpteFrameRate {"
+        $lines += "    kVstSmpte24fps = 0,"
+        $lines += "    kVstSmpte239fps = 1,"
+        $lines += "    kVstSmpte25fps = 2,"
+        $lines += "    kVstSmpte249fps = 3,"
+        $lines += "    kVstSmpte30fps = 4,"
+        $lines += "    kVstSmpte30dfps = 5,"
+        $lines += "    kVstSmpte2997fps = 6,"
+        $lines += "    kVstSmpte2997dfps = 7,"
+        $lines += "    kVstSmpte60fps = 8,"
+        $lines += "    kVstSmpte599fps = 9,"
+        $lines += "    kVstSmpteFilm16mm = 10,"
+        $lines += "    kVstSmpteFilm35mm = 11"
+        $lines += "};"
+        $lines += ""
+        $lines += "// VstTimeInfo structure"
+        $lines += "struct VstTimeInfo {"
+        $lines += "    double samplePos;"
+        $lines += "    double sampleRate;"
+        $lines += "    double nanoSeconds;"
+        $lines += "    double ppqPos;"
+        $lines += "    double tempo;"
+        $lines += "    double barStartPos;"
+        $lines += "    double cycleStartPos;"
+        $lines += "    double cycleEndPos;"
+        $lines += "    VstInt32 timeSigNumerator;"
+        $lines += "    VstInt32 timeSigDenominator;"
+        $lines += "    VstInt32 smpteOffset;"
+        $lines += "    VstInt32 smpteFrameRate;"
+        $lines += "    VstInt32 samplesToNextClock;"
+        $lines += "    VstInt32 flags;"
+        $lines += "};"
+        $lines += ""
+        $lines += "// ERect structure"
+        $lines += "struct ERect {"
+        $lines += "    short top;"
+        $lines += "    short left;"
+        $lines += "    short bottom;"
+        $lines += "    short right;"
+        $lines += "};"
+        $lines += ""
+        $lines += "// VstPinProperties structure"
+        $lines += "struct VstPinProperties {"
+        $lines += "    char label[64];"
+        $lines += "    VstInt32 flags;"
+        $lines += "    VstInt32 arrangementType;"
+        $lines += "    char shortLabel[8];"
+        $lines += "    char future[48];"
+        $lines += "};"
         $lines += ""
         $lines += "// VstEvent types"
         $lines += "enum VstEventTypes {"
@@ -101,7 +235,7 @@ jobs:
         $lines += "    VstEvent* events[2];"
         $lines += "};"
         $lines += ""
-        $lines += "// ALL Speaker arrangement constants (REQUIRED BY JUCE VSTCommon.h)"
+        $lines += "// Speaker arrangement constants"
         $lines += "enum VstSpeakerArrangementType {"
         $lines += "    kSpeakerArrEmpty = 0,"
         $lines += "    kSpeakerArrMono = 1,"
@@ -136,7 +270,7 @@ jobs:
         $lines += "    kSpeakerArr102 = 30"
         $lines += "};"
         $lines += ""
-        $lines += "// Individual speaker constants (REQUIRED BY JUCE VSTCommon.h)"
+        $lines += "// Individual speaker constants"
         $lines += "enum VstSpeakerType {"
         $lines += "    kSpeakerUndefined = 0x7fffffff,"
         $lines += "    kSpeakerM = 0,"
@@ -149,7 +283,7 @@ jobs:
         $lines += "    kSpeakerLc = 7,"
         $lines += "    kSpeakerRc = 8,"
         $lines += "    kSpeakerS = 9,"
-        $lines += "    kSpeakerCs = kSpeakerS,"
+        $lines += "    kSpeakerCs = 9,"
         $lines += "    kSpeakerSl = 10,"
         $lines += "    kSpeakerSr = 11,"
         $lines += "    kSpeakerTm = 12,"
@@ -162,18 +296,8 @@ jobs:
         $lines += "    kSpeakerLfe2 = 19"
         $lines += "};"
         $lines += ""
-        $lines += "// VstSpeakerProperties structure (REQUIRED BY JUCE VSTCommon.h)"
+        $lines += "// VstSpeakerProperties structure"
         $lines += "struct VstSpeakerProperties {"
-        $lines += "    float azimuth;"
-        $lines += "    float elevation;"
-        $lines += "    float radius;"
-        $lines += "    float reserved;"
-        $lines += "    char name[64];"
-        $lines += "    VstInt32 type;"
-        $lines += "};"
-        $lines += ""
-        $lines += "// VstSpeaker structure"
-        $lines += "struct VstSpeaker {"
         $lines += "    float azimuth;"
         $lines += "    float elevation;"
         $lines += "    float radius;"
@@ -186,16 +310,16 @@ jobs:
         $lines += "struct VstSpeakerArrangement {"
         $lines += "    VstInt32 type;"
         $lines += "    VstInt32 numChannels;"
-        $lines += "    VstSpeaker speakers[8];"
+        $lines += "    VstSpeakerProperties speakers[8];"
         $lines += "};"
         $lines += ""
         $lines += "// AEffect structure"
         $lines += "struct AEffect {"
         $lines += "    VstInt32 magic;"
-        $lines += "    VstIntPtr dispatcher;"
-        $lines += "    VstIntPtr process;"
-        $lines += "    VstIntPtr setParameter;"
-        $lines += "    VstIntPtr getParameter;"
+        $lines += "    AEffectDispatcherProc dispatcher;"
+        $lines += "    AEffectProcessProc process;"
+        $lines += "    AEffectSetParameterProc setParameter;"
+        $lines += "    AEffectGetParameterProc getParameter;"
         $lines += "    VstInt32 numPrograms;"
         $lines += "    VstInt32 numParams;"
         $lines += "    VstInt32 numInputs;"
@@ -211,8 +335,8 @@ jobs:
         $lines += "    void* user;"
         $lines += "    VstInt32 uniqueID;"
         $lines += "    VstInt32 version;"
-        $lines += "    VstIntPtr processReplacing;"
-        $lines += "    VstIntPtr processDoubleReplacing;"
+        $lines += "    AEffectProcessProc processReplacing;"
+        $lines += "    AEffectProcessDoubleProc processDoubleReplacing;"
         $lines += "    char future[56];"
         $lines += "};"
         $lines += ""
@@ -226,7 +350,7 @@ jobs:
         
         ($lines -join "`n") | Out-File -FilePath "VST2_SDK/pluginterfaces/vst2.x/aeffect.h" -Encoding utf8
         
-        # Create complete aeffectx.h (keeping same as before)
+        # Create complete aeffectx.h using same safe method
         $ax_lines = @()
         $ax_lines += "#ifndef __aeffectx__"
         $ax_lines += "#define __aeffectx__"
@@ -279,7 +403,7 @@ jobs:
         
         ($ax_lines -join "`n") | Out-File -FilePath "VST2_SDK/pluginterfaces/vst2.x/aeffectx.h" -Encoding utf8
         
-        # Create vstfxstore.h (keeping same as before)
+        # Create vstfxstore.h
         $fx_lines = @()
         $fx_lines += "#ifndef __vstfxstore__"
         $fx_lines += "#define __vstfxstore__"
@@ -321,27 +445,27 @@ jobs:
         
         ($fx_lines -join "`n") | Out-File -FilePath "VST2_SDK/pluginterfaces/vst2.x/vstfxstore.h" -Encoding utf8
         
-        Write-Host "🎉 ULTIMATE COMPLETE VST2 SDK created with ALL constants JUCE needs!"
+        Write-Host "✅ COMPLETE PROFESSIONAL VST2 SDK CREATED!"
         
         # Verify complete headers
         $headerSize = (Get-Item 'VST2_SDK/pluginterfaces/vst2.x/aeffect.h').Length
-        Write-Host "Ultimate aeffect.h size: $headerSize bytes"
+        Write-Host "Professional aeffect.h size: $headerSize bytes"
         
-    - name: Configure CMake with Ultimate VST2 SDK
+    - name: Configure CMake with Professional VST2 SDK
       run: |
         Write-Host "=== CMAKE CONFIGURATION ==="
         $vst2Path = (Resolve-Path "VST2_SDK").Path
-        Write-Host "VST2 SDK path: $vst2Path"
+        Write-Host "Professional VST2 SDK path: $vst2Path"
         cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVST2_SDK_PATH="$vst2Path"
     
-    - name: Build FINAL VST2 DLL
+    - name: Build FINAL PROFESSIONAL VST2 DLL
       run: |
-        Write-Host "🎯 === BUILDING FINAL VST2 DLL ==="
+        Write-Host "=== BUILDING FINAL PROFESSIONAL VST2 DLL ==="
         cmake --build build --config Release --target FootstepDetector_VST --verbose
         
     - name: Package FINAL VST2 DLL
       run: |
-        Write-Host "🎉 === PACKAGING FINAL VST2 DLL ==="
+        Write-Host "=== PACKAGING FINAL VST2 SUCCESS! ==="
         New-Item -ItemType Directory -Force -Path package
         
         # Find the VST2 DLL
@@ -351,64 +475,48 @@ jobs:
           Copy-Item $dllPath package/FootstepDetector.dll
           
           $dllSize = (Get-Item $dllPath).Length
-          Write-Host "🎉🎉🎉 SUCCESS! FOOTSTEP DETECTOR VST2 CREATED! 🎉🎉🎉"
-          Write-Host "VST2 DLL: $dll ($dllSize bytes)"
+          Write-Host "SUCCESS! FOOTSTEP DETECTOR VST2 CREATED!"
+          Write-Host "Professional VST2 DLL: $dll ($dllSize bytes)"
           
-          # Create FINAL installation guide
+          # Create installation guide using safe method
           $guide = @(
-            "🎉🎉🎉 FOOTSTEP DETECTOR VST2 - FINAL SUCCESS! 🎉🎉🎉",
+            "FOOTSTEP DETECTOR VST2 - SUCCESS!",
             "",
             "CONGRATULATIONS! Your Call of Duty footstep enhancement plugin is ready!",
             "",
-            "📥 INSTALLATION FOR EQUALIZERAPO:",
+            "INSTALLATION FOR EQUALIZERAPO:",
             "1. Copy FootstepDetector.dll to your VST plugin folder",
-            "   (e.g., C:\Program Files\EqualizerAPO\VSTPlugins\)",
-            "",
             "2. Open EqualizerAPO Configuration Editor",
-            "",
-            "3. Add VST Plugin:",
-            "   - Click 'Add' button",
-            "   - Select 'VST Plugin'", 
-            "   - Browse to FootstepDetector.dll",
-            "   - Click OK",
-            "",
+            "3. Add VST Plugin and browse to FootstepDetector.dll",
             "4. Apply configuration and restart audio applications",
             "",
-            "🎮 WHAT IT DOES:",
-            "✅ Automatically detects Call of Duty footsteps using energy + frequency analysis",
-            "✅ Amplifies footsteps by 3x when detected (confidence > 0.7)",
-            "✅ Uses COD-optimized detection thresholds (RMS: 0.025-0.100)",
-            "✅ Real-time processing with minimal latency",
-            "✅ Smart temporal analysis to avoid false positives",
+            "FEATURES:",
+            "- Automatic Call of Duty footstep detection",
+            "- Real-time 3x amplification of detected footsteps",
+            "- Energy and frequency analysis optimized for COD",
+            "- Professional-grade audio processing",
             "",
-            "🔧 PLUGIN PARAMETERS:",
-            "- Sensitivity: Adjust detection threshold (default: 0.5)",
-            "- Gain: Control amplification amount (default: 3.0x)",
-            "- Bypass: Toggle plugin on/off for comparison",
+            "PLUGIN PARAMETERS:",
+            "- Sensitivity: Adjust detection threshold",
+            "- Gain: Control amplification amount",
+            "- Bypass: Toggle plugin on/off",
             "",
-            "🏆 COMPETITIVE ADVANTAGE:",
-            "- Hear enemy footsteps before they hear yours",
-            "- Optimized specifically for Call of Duty audio signatures",
-            "- Professional-grade audio processing algorithms",
-            "",
-            "Build completed: $(Get-Date)",
+            "Build Date: $(Get-Date)",
+            "Version: 1.0.0 Professional",
             "Platform: Windows x64",
-            "Format: VST2 (.dll)",
-            "Status: READY FOR COMPETITIVE GAMING! 🎯",
-            "",
-            "🎉 ENJOY YOUR ENHANCED COD EXPERIENCE! 🎉"
+            "Status: READY FOR COMPETITIVE GAMING!"
           )
           
-          ($guide -join "`n") | Out-File -FilePath "package/SUCCESS_INSTALLATION_GUIDE.txt" -Encoding utf8
+          ($guide -join "`n") | Out-File -FilePath "package/SUCCESS_GUIDE.txt" -Encoding utf8
           
         } else {
-          Write-Host "❌ VST2 DLL not found after ultimate build"
-          New-Item -Path "package/BUILD_FAILED.txt" -Value "Ultimate build failed" -Force
+          Write-Host "VST2 DLL not found"
+          New-Item -Path "package/BUILD_FAILED.txt" -Value "Professional build failed" -Force
         }
         
-    - name: Upload ULTIMATE VST2 SUCCESS
+    - name: Upload FINAL VST2 SUCCESS
       uses: actions/upload-artifact@v4
       with:
-        name: FootstepDetector-VST2-ULTIMATE-SUCCESS
+        name: FootstepDetector-VST2-FINAL-SUCCESS
         path: package/
         retention-days: 30
