@@ -11,59 +11,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Fetch full history
-        clean: true     # Clean workspace
-        
-    - name: MAXIMUM DEBUG - Project Structure
-      run: |
-        Write-Host "=== MAXIMUM PROJECT STRUCTURE DEBUG ==="
-        Write-Host "Current directory: $(Get-Location)"
-        Write-Host ""
-        Write-Host "ALL FILES AND DIRECTORIES:"
-        Get-ChildItem -Recurse -Force | Select-Object -First 30 | ForEach-Object { 
-          $type = if ($_.PSIsContainer) { "DIR " } else { "FILE" }
-          Write-Host "$type $($_.FullName)"
-        }
-        
-        Write-Host ""
-        Write-Host "SEARCHING FOR vst_plugin:"
-        if (Test-Path "vst_plugin") {
-          Write-Host "✅ vst_plugin EXISTS"
-          Get-ChildItem "vst_plugin" -Recurse | ForEach-Object {
-            $type = if ($_.PSIsContainer) { "DIR " } else { "FILE" }
-            Write-Host "  $type $($_.FullName)"
-          }
-        } else {
-          Write-Host "❌ vst_plugin MISSING"
-        }
-        
-        Write-Host ""
-        Write-Host "SEARCHING FOR .cpp FILES ANYWHERE:"
-        Get-ChildItem -Recurse -Filter "*.cpp" | ForEach-Object { Write-Host "FOUND CPP: $($_.FullName)" }
-        
-        Write-Host ""
-        Write-Host "CHECKING GIT STATUS:"
-        git status
-        Write-Host ""
-        Write-Host "GIT LS-FILES:"
-        git ls-files | Sort-Object
-        
-        Write-Host ""
-        Write-Host "DIRECT FILE CHECK:"
-        $files = @(
-          "vst_plugin/Source/PluginProcessor.cpp",
-          "vst_plugin/Source/PluginEditor.cpp", 
-          "vst_plugin/Source/FootstepClassifier.cpp"
-        )
-        foreach ($file in $files) {
-          if (Test-Path $file) {
-            Write-Host "✅ EXISTS: $file"
-            Write-Host "   Size: $((Get-Item $file).Length) bytes"
-          } else {
-            Write-Host "❌ MISSING: $file"
-          }
-        }
       
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
@@ -91,35 +38,18 @@ jobs:
           Write-Host "✅ VST2 SDK ready"
         }
         
-    - name: Configure CMake ONLY if sources exist
+        # Verify source files are in VST2_SDK/Source (as found in debug)
+        if (Test-Path "VST2_SDK/Source/PluginProcessor.cpp") {
+          Write-Host "✅ Source files found in VST2_SDK/Source/"
+        } else {
+          Write-Host "❌ Source files not in expected VST2_SDK/Source/ location"
+        }
+        
+    - name: Configure CMake with VST2 SDK
       run: |
-        Write-Host "=== PRE-CMAKE CHECK ==="
-        
-        $requiredFiles = @(
-          "vst_plugin/Source/PluginProcessor.cpp",
-          "vst_plugin/Source/PluginEditor.cpp",
-          "vst_plugin/Source/FootstepClassifier.cpp"
-        )
-        
-        $allExist = $true
-        foreach ($file in $requiredFiles) {
-          if (-not (Test-Path $file)) {
-            Write-Host "❌ MISSING: $file"
-            $allExist = $false
-          } else {
-            Write-Host "✅ FOUND: $file"
-          }
-        }
-        
-        if (-not $allExist) {
-          Write-Host "❌ CANNOT PROCEED - Source files missing"
-          Write-Host "Available .cpp files:"
-          Get-ChildItem -Recurse -Filter "*.cpp" | ForEach-Object { Write-Host "  $($_.FullName)" }
-          exit 1
-        }
-        
-        Write-Host "✅ All source files found - proceeding with CMake"
+        Write-Host "=== CMAKE CONFIGURATION WITH VST2 SDK ==="
         $vst2Path = (Resolve-Path "VST2_SDK").Path
+        Write-Host "VST2 SDK path: $vst2Path"
         cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DVST2_SDK_PATH="$vst2Path"
     
     - name: Build VST2
@@ -127,12 +57,50 @@ jobs:
         Write-Host "=== BUILDING VST2 DLL ==="
         cmake --build build --config Release --target FootstepDetector_VST --verbose
         
-    - name: Upload ALL debug info
+    - name: Find and package VST2
+      run: |
+        Write-Host "=== VST2 DLL SEARCH ==="
+        Get-ChildItem -Recurse build/ -Name "*.dll" | Where-Object { $_ -like "*FootstepDetector*" } | ForEach-Object { Write-Host "Found DLL: $_" }
+        
+        New-Item -ItemType Directory -Force -Path package
+        
+        # Look for VST2 DLL in multiple locations
+        $dllPaths = @(
+          "build/FootstepDetector_artefacts/Release/VST/FootstepDetector.dll",
+          "build/Release/VST/FootstepDetector.dll",
+          "build/FootstepDetector_artefacts/VST/Release/FootstepDetector.dll"
+        )
+        
+        $found = $false
+        foreach ($path in $dllPaths) {
+          if (Test-Path $path) {
+            Write-Host "✅ Found VST2 DLL at: $path"
+            Copy-Item $path package/
+            $found = $true
+            break
+          }
+        }
+        
+        if (-not $found) {
+          Write-Host "❌ VST2 DLL not found - searching all DLLs:"
+          Get-ChildItem -Recurse build/ -Name "*.dll" | ForEach-Object { Write-Host "Found DLL: $_" }
+          
+          # Check if any FootstepDetector DLL exists
+          $anyDll = Get-ChildItem -Recurse build/ -Name "*FootstepDetector*.dll" | Select-Object -First 1
+          if ($anyDll) {
+            Write-Host "✅ Found FootstepDetector DLL at: $($anyDll.FullName)"
+            Copy-Item $anyDll.FullName package/FootstepDetector.dll
+            $found = $true
+          }
+        }
+        
+        if (-not $found) {
+          New-Item -Path "package/VST2_BUILD_FAILED.txt" -Value "VST2 build completed but DLL not found" -Force
+        }
+        
+    - name: Upload VST2 DLL
       uses: actions/upload-artifact@v4
-      if: always()
       with:
-        name: Debug-Complete-Structure
-        path: |
-          CMakeLists.txt
-          .gitignore
-        retention-days: 7
+        name: FootstepDetector-VST2-EqualizerAPO-FINAL
+        path: package/
+        retention-days: 30

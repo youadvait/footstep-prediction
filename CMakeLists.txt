@@ -33,10 +33,11 @@ juce_add_plugin(FootstepDetector
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
 )
 
+# FIXED: Use the actual source file locations found in debug
 target_sources(FootstepDetector PRIVATE
-    vst_plugin/Source/PluginProcessor.cpp
-    vst_plugin/Source/PluginEditor.cpp
-    vst_plugin/Source/FootstepClassifier.cpp
+    VST2_SDK/Source/PluginProcessor.cpp
+    VST2_SDK/Source/PluginEditor.cpp
+    VST2_SDK/Source/FootstepClassifier.cpp
 )
 
 target_link_libraries(FootstepDetector PRIVATE
