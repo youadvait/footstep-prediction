@@ -12,118 +12,71 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Debug - Check JUCE properly
+    - name: Check JUCE version and functions
       run: |
-        Write-Host "=== DETAILED JUCE CHECK ==="
-        if (Test-Path "JUCE") {
-          Write-Host "✅ JUCE directory exists"
-          Write-Host "JUCE directory size: $((Get-ChildItem JUCE -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB) MB"
-          
-          if (Test-Path "JUCE/CMakeLists.txt") {
-            Write-Host "✅ JUCE CMakeLists.txt exists"
-            Write-Host "JUCE CMakeLists.txt size: $((Get-Item 'JUCE/CMakeLists.txt').Length) bytes"
-          } else {
-            Write-Host "❌ JUCE CMakeLists.txt missing"
-          }
-          
-          if (Test-Path "JUCE/modules") {
-            $moduleCount = (Get-ChildItem "JUCE/modules" -Directory).Count
-            Write-Host "✅ JUCE modules directory exists with $moduleCount modules"
-          } else {
-            Write-Host "❌ JUCE modules directory missing"
-          }
+        Write-Host "=== JUCE VERSION CHECK ==="
+        if (Test-Path "JUCE/VERSION.txt") {
+          Get-Content "JUCE/VERSION.txt"
         } else {
-          Write-Host "❌ JUCE directory completely missing"
-          Write-Host "Repository contents:"
-          Get-ChildItem . -Name | Sort-Object | ForEach-Object { Write-Host "  - $_" }
+          Write-Host "No VERSION.txt found"
         }
         
-    - name: Manually download JUCE (if missing)
-      run: |
-        if (-not (Test-Path "JUCE/CMakeLists.txt")) {
-          Write-Host "JUCE missing or incomplete - downloading manually..."
-          Invoke-WebRequest -Uri "https://github.com/juce-framework/JUCE/archive/refs/tags/7.0.12.zip" -OutFile "juce.zip"
-          Expand-Archive -Path "juce.zip" -DestinationPath "."
-          if (Test-Path "JUCE-7.0.12") {
-            Remove-Item -Recurse -Force "JUCE" -ErrorAction SilentlyContinue
-            Rename-Item "JUCE-7.0.12" "JUCE"
-            Write-Host "✅ JUCE downloaded and extracted"
-          }
-        }
+        Write-Host "=== JUCE CMAKE FUNCTIONS ==="
+        Select-String -Path "JUCE/CMakeLists.txt" -Pattern "juce_add_plugin|juce_generate_juce_header" | Select-Object -First 10
         
-    - name: Verify project structure
-      run: |
-        Write-Host "=== PROJECT STRUCTURE ==="
-        Write-Host "Root files:"
-        Get-ChildItem . -Name | Sort-Object | ForEach-Object { Write-Host "  - $_" }
-        Write-Host ""
-        Write-Host "Source files:"
-        if (Test-Path "vst_plugin/Source") {
-          Get-ChildItem "vst_plugin/Source" -Name | ForEach-Object { Write-Host "  - vst_plugin/Source/$_" }
-        } else {
-          Write-Host "  ❌ vst_plugin/Source directory missing"
+        Write-Host "=== SOURCE FILE CHECK ==="
+        if (Test-Path "vst_plugin/Source/PluginProcessor.cpp") {
+          Write-Host "PluginProcessor.cpp size: $((Get-Item 'vst_plugin/Source/PluginProcessor.cpp').Length) bytes"
+          Write-Host "First 10 lines:"
+          Get-Content "vst_plugin/Source/PluginProcessor.cpp" -TotalCount 10
         }
-        Write-Host ""
-        Write-Host "CMakeLists.txt content (first 20 lines):"
-        Get-Content "CMakeLists.txt" -TotalCount 20 | ForEach-Object { Write-Host "  $_" }
         
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
-      
-    - name: Configure CMake (with maximum verbosity)
+    
+    - name: CMAKE DEBUG - Step by step
       run: |
-        Write-Host "=== CMAKE CONFIGURATION ==="
-        Write-Host "CMake version:"
+        Write-Host "=== CMAKE STEP-BY-STEP DEBUG ==="
+        Write-Host "Step 1: CMake version"
         cmake --version
-        Write-Host ""
-        Write-Host "Starting CMake configuration with maximum verbosity..."
-        Write-Host ""
-        cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release --debug-output --verbose 2>&1 | Tee-Object -FilePath cmake_output.log
-        Write-Host ""
-        Write-Host "=== CMAKE CONFIGURATION COMPLETE ==="
-        Write-Host "Exit code: $LASTEXITCODE"
-        if ($LASTEXITCODE -ne 0) {
-          Write-Host ""
-          Write-Host "❌ CMAKE FAILED - Full output:"
-          Get-Content cmake_output.log
-          exit 1
-        }
-      shell: powershell
-      continue-on-error: false
-    
-    - name: Build VST3 (if CMake succeeded)
-      run: |
-        Write-Host "=== CMAKE BUILD ==="
-        cmake --build build --config Release --target FootstepDetector_VST3 --verbose
-    
-    - name: Find VST3 output
-      run: |
-        Write-Host "=== SEARCHING FOR VST3 ==="
-        Get-ChildItem -Recurse build/ -Name "*.vst3" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "Found VST3: $_" }
-        Get-ChildItem -Recurse build/ -Name "*FootstepDetector*" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "Found FootstepDetector: $_" }
-    
-    - name: Package VST3 (if found)
-      run: |
-        New-Item -ItemType Directory -Force -Path package
-        $vst3Files = Get-ChildItem -Recurse build/ -Name "FootstepDetector.vst3" -ErrorAction SilentlyContinue
-        if ($vst3Files.Count -gt 0) {
-          $sourcePath = $vst3Files[0]
-          Copy-Item -Recurse (Join-Path "build" $sourcePath) package/
-          Write-Host "✅ VST3 packaged: $sourcePath"
-        } else {
-          Write-Host "❌ No VST3 found to package"
-          # Create empty package to avoid upload errors
-          New-Item -Path "package/README.txt" -Value "No VST3 was built" -Force
+        
+        Write-Host "Step 2: Test basic CMake"
+        cmake --help | Select-Object -First 5
+        
+        Write-Host "Step 3: Test generator"
+        cmake -G "Visual Studio 17 2022" --help | Select-Object -First 5
+        
+        Write-Host "Step 4: Check JUCE subdirectory"
+        if (Test-Path "JUCE/CMakeLists.txt") {
+          Write-Host "✅ JUCE CMakeLists.txt exists"
+          Write-Host "JUCE CMakeLists.txt first 20 lines:"
+          Get-Content "JUCE/CMakeLists.txt" -TotalCount 20
         }
         
-    - name: Upload results (success or failure)
+        Write-Host "Step 5: Test basic CMake configuration"
+        Write-Host "About to run: cmake -B build-test --debug-output -G ""Visual Studio 17 2022"" -A x64"
+        
+    - name: CMake Configure with MAXIMUM debug
+      run: |
+        Write-Host "=== FULL CMAKE CONFIGURE ==="
+        $env:VERBOSE = "1"
+        cmake -B build --debug-output --trace --trace-expand -G "Visual Studio 17 2022" -A x64 2>&1 | Tee-Object -FilePath cmake_full_debug.log
+        Write-Host "CMAKE Exit Code: $LASTEXITCODE"
+        
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "=== CMAKE FAILED - Last 50 lines of output ==="
+          Get-Content cmake_full_debug.log -Tail 50
+        }
+      shell: powershell
+      continue-on-error: true
+        
+    - name: Upload ALL debug info
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: FootstepDetector-Windows-Build-Debug
+        name: Windows-Debug-Complete
         path: |
-          package/
-          cmake_output.log
+          cmake_full_debug.log
           build/CMakeFiles/CMakeError.log
           build/CMakeFiles/CMakeOutput.log
         retention-days: 7

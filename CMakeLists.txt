@@ -14,7 +14,7 @@ juce_add_plugin(FootstepDetector
     IS_SYNTH FALSE
 )
 
-juce_generate_juce_header(FootstepDetector)
+# REMOVED: juce_generate_juce_header(FootstepDetector)
 
 target_sources(FootstepDetector PRIVATE
     vst_plugin/Source/PluginProcessor.cpp
