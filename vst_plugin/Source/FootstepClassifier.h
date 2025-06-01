@@ -44,11 +44,10 @@ private:
     static constexpr float COD_FOOTSTEP_FREQ_HIGH = 1000.0f;
     static constexpr float COD_ONSET_THRESHOLD = 3.0f;      // Sudden energy change
     
-    // Detection methods
+    // Detection methods (REMOVED isInFootstepFrequencyRange - not used!)
     float analyzeEnergyAndFrequency(const float* audioBuffer, int bufferSize, float sampleRate);
     bool detectOnset(float currentRMS);
     float analyzeFootstepFrequencies(const float* audioBuffer, int bufferSize, float sampleRate);
-    bool isInFootstepFrequencyRange(float frequency);
     float calculateBandEnergy(const float* audioBuffer, int bufferSize, float sampleRate, 
                              float lowFreq, float highFreq);
 };
