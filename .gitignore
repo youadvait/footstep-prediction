@@ -14,4 +14,4 @@ build/
 
 # System files
 Thumbs.db
-.DS_Store
+.DS_StoreCMakeLists.mac.txt
