@@ -1,0 +1,107 @@
+name: Build AU Test Plugin
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build-au:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download JUCE 6.1.6
+      run: |
+        echo "=== DOWNLOADING JUCE 6.1.6 FOR AU BUILD ==="
+        curl -L "https://github.com/juce-framework/JUCE/archive/refs/tags/6.1.6.zip" -o juce.zip
+        unzip juce.zip
+        mv JUCE-6.1.6 JUCE
+        rm juce.zip
+        echo "✅ JUCE 6.1.6 downloaded and extracted"
+    
+    - name: Build AU Plugin (Same Algorithm as VST2)
+      run: |
+        echo "=== BUILDING AU PLUGIN WITH IDENTICAL ALGORITHM ==="
+        echo "Current FootstepClassifier algorithm:"
+        echo "- Energy: RMS over 256-sample buffer"
+        echo "- Range: 0.025-0.100 RMS (peak at 0.0625)"
+        echo "- Frequency: Simple high-pass filter"
+        echo "- Confidence: 70% energy + 30% frequency"
+        echo "- Threshold: 0.3-0.7 based on sensitivity"
+        echo "- Cooldown: 100ms"
+        
+        # Use separate CMake file
+        cmake -B build-au -f CMakeLists-AU.txt -DCMAKE_BUILD_TYPE=Release
+        cmake --build build-au --config Release
+        
+    - name: Package AU Plugin
+      run: |
+        echo "=== PACKAGING AU PLUGIN FOR LOGIC PRO ==="
+        mkdir -p package-au
+        
+        # Find AU component
+        find build-au -name "*.component" -type d | head -1 | xargs -I {} cp -R {} package-au/
+        
+        # Check if AU was built
+        if [ -d package-au/*.component ]; then
+          echo "✅ AU Plugin built successfully"
+          ls -la package-au/
+        else
+          echo "❌ AU Plugin not found"
+          find build-au -name "*FootstepDetector*" -type f
+        fi
+        
+        # Create detailed installation guide
+        cat > package-au/AU_TEST_GUIDE.txt << 'EOL'
+🎵 FootstepDetector AU Plugin - Algorithm Test Version
+
+📥 INSTALLATION FOR LOGIC PRO:
+1. Copy FootstepDetector-AU.component to:
+   ~/Library/Audio/Plug-Ins/Components/
+
+2. Restart Logic Pro (important!)
+
+3. In Logic Pro project:
+   - Select audio track with COD audio
+   - Insert → Audio FX → FootstepTech → FootstepDetector AU
+
+🧪 ALGORITHM TEST (Same as VST2):
+- Energy Detection: RMS 0.025-0.100 range
+- Frequency: High-pass filter analysis  
+- Confidence: 70% energy + 30% frequency weighting
+- Threshold: 0.3-0.7 range (sensitivity dependent)
+- Cooldown: 100ms between detections
+
+🎛 PARAMETER TESTING:
+✅ Sensitivity 0.1 (very sensitive - should detect more)
+✅ Sensitivity 0.5 (default - moderate detection)  
+✅ Sensitivity 0.9 (less sensitive - only strong footsteps)
+✅ Gain 1.0x (no amplification - just detection test)
+✅ Gain 5.0x (max amplification - obvious effect)
+✅ Bypass toggle (A/B comparison)
+
+🎯 VERIFICATION QUESTIONS:
+1. Does AU version detect footsteps? (Yes/No)
+2. Do parameters respond in Logic Pro? (Yes/No)
+3. Is detection behavior same as standalone? (Yes/No)
+4. What sensitivity setting works best? (0.1-1.0)
+
+If AU works but VST2 doesn't → Integration issue
+If neither work → Algorithm needs adjustment
+
+Build Date: $(date)
+Format: AudioUnit (.component)
+Algorithm: Identical to VST2 version
+Purpose: Algorithm verification and comparison
+EOL
+        
+        echo "✅ AU Plugin packaged with test guide"
+        
+    - name: Upload AU Test Plugin
+      uses: actions/upload-artifact@v4
+      with:
+        name: FootstepDetector-AU-Algorithm-Test
+        path: package-au/
+        retention-days: 30
