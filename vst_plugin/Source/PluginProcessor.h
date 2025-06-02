@@ -1,6 +1,10 @@
 #pragma once
 
-#include <JuceHeader.h>
+#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_utils/juce_audio_utils.h>
+#include <juce_core/juce_core.h>
+#include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_dsp/juce_dsp.h>
 #include "FootstepClassifier.h"
 
 class FootstepDetectorAudioProcessor : public juce::AudioProcessor
@@ -35,10 +39,10 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
-    // Simple parameter members (thread-safe primitives)
-    std::atomic<float> sensitivityParam{0.5f};
-    std::atomic<float> gainParam{3.0f};
-    std::atomic<bool> bypassParam{false};
+    // Simple parameter members (using basic types - thread-safe)
+    float sensitivityParam = 0.5f;
+    float gainParam = 3.0f;
+    bool bypassParam = false;
 
 private:
     std::unique_ptr<FootstepClassifier> footstepClassifier;

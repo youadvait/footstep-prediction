@@ -89,7 +89,7 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
-    // BASIC SAFETY: Simple parameter bounds checking
+    // BASIC SAFETY: Simple bounds checking
     float sensitivity = juce::jlimit(0.0f, 1.0f, sensitivityParam);
     float gain = juce::jlimit(1.0f, 5.0f, gainParam);
     
@@ -106,23 +106,16 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
         {
             float inputSample = channelData[sample];
             
-            // SAFE processing with try-catch
-            try {
-                bool isFootstep = footstepClassifier->detectFootstep(inputSample, sensitivity);
-                
-                if (isFootstep)
-                {
-                    // SAFE amplification with clipping protection
-                    float amplified = inputSample * gain;
-                    channelData[sample] = juce::jlimit(-1.0f, 1.0f, amplified);
-                }
-                else
-                {
-                    channelData[sample] = inputSample;
-                }
+            bool isFootstep = footstepClassifier->detectFootstep(inputSample, sensitivity);
+            
+            if (isFootstep)
+            {
+                // SAFE amplification with clipping protection
+                float amplified = inputSample * gain;
+                channelData[sample] = juce::jlimit(-1.0f, 1.0f, amplified);
             }
-            catch (...) {
-                // Fallback: pass through on any error
+            else
+            {
                 channelData[sample] = inputSample;
             }
         }
@@ -151,17 +144,11 @@ void FootstepDetectorAudioProcessor::setStateInformation(const void* data, int s
 {
     juce::MemoryInputStream mis(data, static_cast<size_t>(sizeInBytes), false);
     
-    // SAFE parameter loading with validation
-    if (mis.getNumBytesRemaining() >= 9) // 4+4+1 bytes minimum
+    if (mis.getNumBytesRemaining() >= 9)
     {
-        float newSensitivity = mis.readFloat();
-        float newGain = mis.readFloat();
-        bool newBypass = mis.readBool();
-        
-        // Validate and clamp loaded values
-        sensitivityParam = juce::jlimit(0.0f, 1.0f, newSensitivity);
-        gainParam = juce::jlimit(1.0f, 5.0f, newGain);
-        bypassParam = newBypass;
+        sensitivityParam = juce::jlimit(0.0f, 1.0f, mis.readFloat());
+        gainParam = juce::jlimit(1.0f, 5.0f, mis.readFloat());
+        bypassParam = mis.readBool();
     }
 }
 
