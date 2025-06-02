@@ -1,170 +1,147 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-FootstepDetectorProcessor::FootstepDetectorProcessor()
+FootstepDetectorAudioProcessor::FootstepDetectorAudioProcessor()
      : AudioProcessor (BusesProperties()
                        .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
-                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
+                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+       parameters (*this, nullptr, juce::Identifier("FootstepDetector"),
+                   {
+                       std::make_unique<juce::AudioParameterFloat>("sensitivity",
+                                                                   "Sensitivity",
+                                                                   juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+                                                                   0.5f),
+                       std::make_unique<juce::AudioParameterFloat>("gain",
+                                                                   "Gain",
+                                                                   juce::NormalisableRange<float>(1.0f, 5.0f, 0.1f),
+                                                                   3.0f),
+                       std::make_unique<juce::AudioParameterBool>("bypass",
+                                                                  "Bypass",
+                                                                  false)
+                   }),
+       footstepClassifier(std::make_unique<FootstepClassifier>())
 {
-    std::cout << "🎯 FINAL FootstepDetector - Energy + Frequency Analysis!" << std::endl;
-    
-    // Initialize ONLY the classifier (no MFCC needed)
-    footstepClassifier = std::make_unique<FootstepClassifier>();
-    
-    initializeBuffers();
-    
-    std::cout << "✅ FINAL FootstepDetector initialized" << std::endl;
+    // CRITICAL FIX: Thread-safe parameter initialization
+    sensitivityParam = parameters.getRawParameterValue("sensitivity");
+    gainParam = parameters.getRawParameterValue("gain");
+    bypassParam = parameters.getRawParameterValue("bypass");
 }
 
-FootstepDetectorProcessor::~FootstepDetectorProcessor()
-{
-}
-
-void FootstepDetectorProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
-{
-    std::cout << "🔧 Preparing FINAL audio: " << sampleRate << "Hz, " << samplesPerBlock << " samples" << std::endl;
-    
-    currentSampleRate = sampleRate;
-    currentBlockSize = samplesPerBlock;
-    
-    initializeBuffers();
-    
-    std::cout << "✅ FINAL version prepared for STEREO processing" << std::endl;
-}
-
-void FootstepDetectorProcessor::releaseResources()
+FootstepDetectorAudioProcessor::~FootstepDetectorAudioProcessor()
 {
 }
 
-void FootstepDetectorProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& /*midiMessages*/)
+void FootstepDetectorAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+{
+    footstepClassifier->prepare(sampleRate, samplesPerBlock);
+}
+
+void FootstepDetectorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
     
-    auto numSamples = buffer.getNumSamples();
-    auto numChannels = buffer.getNumChannels();
-
-    // Clear unused channels
+    // CRITICAL FIX: Safe parameter reading with null checks
+    if (sensitivityParam == nullptr || gainParam == nullptr || bypassParam == nullptr)
+        return;
+    
+    // Thread-safe parameter access
+    float sensitivity = sensitivityParam->load();
+    float gain = gainParam->load();
+    bool bypass = bypassParam->load() > 0.5f;
+    
+    // CRITICAL FIX: Parameter validation
+    sensitivity = juce::jlimit(0.0f, 1.0f, sensitivity);
+    gain = juce::jlimit(1.0f, 5.0f, gain);
+    
+    if (bypass)
+    {
+        return; // Pass through unprocessed
+    }
+    
+    // Safe audio processing
     auto totalNumInputChannels = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
+    
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear(i, 0, numSamples);
-
-    // Bypass if requested
-    if (bypassed.load()) {
-        return;
-    }
-
-    // DIRECT AUDIO ANALYSIS (no MFCC buffer needed)
-    if (numSamples > 0 && numChannels > 0)
-    {
-        const float* leftChannelData = buffer.getReadPointer(0);
-        performDirectAudioAnalysis(leftChannelData, numSamples);
-    }
-
-    float confidence = currentConfidence.load();
+        buffer.clear(i, 0, buffer.getNumSamples());
     
-    // Copy left to right for stereo output
-    if (numChannels == 2 && totalNumInputChannels == 1)
-    {
-        buffer.copyFrom(1, 0, buffer, 0, 0, numSamples);
-    }
-    
-    // Apply footstep amplification
-    applyFootstepAmplification(buffer, confidence);
-
-    // Debug output (less frequent)
-    static int audioDebugCounter = 0;
-    if (++audioDebugCounter % 200 == 0)
-    {
-        float rms = buffer.getRMSLevel(0, 0, numSamples);
-        std::cout << "🎵 Buffer RMS: " << std::fixed << std::setprecision(4) << rms 
-                  << ", Confidence: " << std::setprecision(3) << confidence;
-        
-        if (confidence > 0.7f) {
-            std::cout << " 🔥 FOOTSTEP BOOST";
-        }
-        
-        std::cout << std::endl;
-    }
-}
-
-void FootstepDetectorProcessor::performDirectAudioAnalysis(const float* audioData, int numSamples)
-{
-    if (!footstepClassifier) return;
-    
-    try {
-        // DIRECT analysis - no MFCC extraction needed
-        float mlConfidence = footstepClassifier->classifyFootstep(
-            audioData, numSamples, static_cast<float>(currentSampleRate)
-        );
-        
-        // Apply sensitivity adjustment
-        float sensitivityValue = sensitivity.load();
-        float adjustedConfidence = mlConfidence * (0.9f + sensitivityValue * 0.2f);
-        
-        // Store confidence
-        currentConfidence.store(adjustedConfidence);
-        
-        // Detection output with final threshold
-        if (mlConfidence > 0.7f) {
-            static int detectionCount = 0;
-            if (++detectionCount % 2 == 0) {
-                std::cout << "🎮 FINAL FOOTSTEP DETECTED: " << std::fixed << std::setprecision(3) 
-                          << mlConfidence << " ⭐" << std::endl;
-            }
-        }
-        
-    } catch (const std::exception& e) {
-        std::cout << "❌ Final detection error: " << e.what() << std::endl;
-    }
-}
-
-void FootstepDetectorProcessor::applyFootstepAmplification(juce::AudioBuffer<float>& buffer, float confidence)
-{
-    if (confidence <= 0.7f) return; // Final threshold for amplification
-    
-    float gainValue = footstepGain.load();
-    float amplificationFactor = 1.0f + (gainValue - 1.0f) * confidence;
-    
-    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+    // Process with validated parameters
+    for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
         
         for (int sample = 0; sample < buffer.getNumSamples(); ++sample)
         {
-            channelData[sample] *= amplificationFactor;
+            float inputSample = channelData[sample];
             
-            // Soft limiting to prevent clipping
-            channelData[sample] = std::tanh(channelData[sample] * 0.8f);
+            // SAFE footstep detection
+            try {
+                bool isFootstep = footstepClassifier->detectFootstep(inputSample, sensitivity);
+                
+                if (isFootstep)
+                {
+                    // SAFE amplification with bounds checking
+                    float amplified = inputSample * gain;
+                    channelData[sample] = juce::jlimit(-1.0f, 1.0f, amplified);
+                }
+                else
+                {
+                    channelData[sample] = inputSample;
+                }
+            }
+            catch (...)
+            {
+                // Fallback: pass through unprocessed on any error
+                channelData[sample] = inputSample;
+            }
         }
     }
 }
 
-void FootstepDetectorProcessor::initializeBuffers()
+// CRITICAL FIX: Safe parameter change handling
+void FootstepDetectorAudioProcessor::parameterChanged(const juce::String& parameterID, float newValue)
 {
-    analysisBuffer.resize(ANALYSIS_WINDOW_SIZE, 0.0f);
-    energyHistory.resize(ENERGY_HISTORY_SIZE, 0.0f);
-    
-    analysisBufferPos = 0;
-    bufferWritePosition = 0;
-    
-    std::cout << "📊 FINAL buffers ready - Direct analysis mode" << std::endl;
+    // Validate and clamp all parameter changes
+    if (parameterID == "sensitivity")
+    {
+        newValue = juce::jlimit(0.0f, 1.0f, newValue);
+    }
+    else if (parameterID == "gain")
+    {
+        newValue = juce::jlimit(1.0f, 5.0f, newValue);
+    }
+    else if (parameterID == "bypass")
+    {
+        newValue = (newValue > 0.5f) ? 1.0f : 0.0f;
+    }
 }
 
-juce::AudioProcessorEditor* FootstepDetectorProcessor::createEditor()
+bool FootstepDetectorAudioProcessor::hasEditor() const
 {
-    return new FootstepDetectorEditor (*this);
+    return true;
 }
 
-void FootstepDetectorProcessor::getStateInformation (juce::MemoryBlock& /*destData*/)
+juce::AudioProcessorEditor* FootstepDetectorAudioProcessor::createEditor()
 {
+    return new FootstepDetectorAudioProcessorEditor (*this, parameters);
 }
 
-void FootstepDetectorProcessor::setStateInformation (const void* /*data*/, int /*sizeInBytes*/)
+void FootstepDetectorAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
+    auto state = parameters.copyState();
+    std::unique_ptr<juce::XmlElement> xml (state.createXml());
+    copyXmlToBinary (*xml, destData);
+}
+
+void FootstepDetectorAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+{
+    std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
+    if (xmlState.get() != nullptr)
+        if (xmlState->hasTagName (parameters.state.getType()))
+            parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new FootstepDetectorProcessor();
+    return new FootstepDetectorAudioProcessor();
 }
