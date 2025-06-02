@@ -1,22 +1,23 @@
 #pragma once
 
-#include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_gui_basics/juce_gui_basics.h>
 #include "PluginProcessor.h"
 
-class FootstepDetectorEditor : public juce::AudioProcessorEditor
+class FootstepDetectorAudioProcessorEditor : public juce::AudioProcessorEditor
 {
 public:
-    FootstepDetectorEditor (FootstepDetectorProcessor&);
-    ~FootstepDetectorEditor() override;
+    FootstepDetectorAudioProcessorEditor(FootstepDetectorAudioProcessor& p);
+    ~FootstepDetectorAudioProcessorEditor() override;
 
-    void paint (juce::Graphics&) override;
+    void paint(juce::Graphics&) override;
     void resized() override;
 
 private:
-    FootstepDetectorProcessor& audioProcessor;
+    // Reference to processor
+    FootstepDetectorAudioProcessor& audioProcessor;
 
-    // UI Components
+    // UI components
     juce::Slider sensitivitySlider;
     juce::Label sensitivityLabel;
     
@@ -25,5 +26,5 @@ private:
     
     juce::ToggleButton bypassButton;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FootstepDetectorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FootstepDetectorAudioProcessorEditor)
 };

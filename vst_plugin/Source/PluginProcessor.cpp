@@ -60,7 +60,11 @@ void FootstepDetectorAudioProcessor::changeProgramName(int index, const juce::St
 
 void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    footstepClassifier->prepare(sampleRate, samplesPerBlock);
+    // CRASH PREVENTION: Safe prepare call
+    if (footstepClassifier != nullptr)
+    {
+        footstepClassifier->prepare(sampleRate, samplesPerBlock);
+    }
 }
 
 void FootstepDetectorAudioProcessor::releaseResources()
@@ -89,13 +93,19 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
-    // BASIC SAFETY: Simple bounds checking
+    // CRASH PREVENTION: Safe parameter reading with validation
     float sensitivity = juce::jlimit(0.0f, 1.0f, sensitivityParam);
     float gain = juce::jlimit(1.0f, 5.0f, gainParam);
     
     if (bypassParam)
     {
         return; // Pass through unchanged
+    }
+
+    // CRASH PREVENTION: Null check
+    if (footstepClassifier == nullptr)
+    {
+        return; // Pass through if classifier not available
     }
 
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
@@ -106,11 +116,19 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
         {
             float inputSample = channelData[sample];
             
+            // CRASH PREVENTION: Validate input sample
+            if (std::isnan(inputSample) || std::isinf(inputSample))
+            {
+                channelData[sample] = 0.0f;
+                continue;
+            }
+            
+            // Safe footstep detection
             bool isFootstep = footstepClassifier->detectFootstep(inputSample, sensitivity);
             
             if (isFootstep)
             {
-                // SAFE amplification with clipping protection
+                // CRASH PREVENTION: Safe amplification with strict bounds
                 float amplified = inputSample * gain;
                 channelData[sample] = juce::jlimit(-1.0f, 1.0f, amplified);
             }
@@ -134,21 +152,31 @@ juce::AudioProcessorEditor* FootstepDetectorAudioProcessor::createEditor()
 
 void FootstepDetectorAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
+    // CRASH PREVENTION: Safe state saving
     juce::MemoryOutputStream mos(destData, true);
-    mos.writeFloat(sensitivityParam);
-    mos.writeFloat(gainParam);
+    mos.writeFloat(juce::jlimit(0.0f, 1.0f, sensitivityParam));
+    mos.writeFloat(juce::jlimit(1.0f, 5.0f, gainParam));
     mos.writeBool(bypassParam);
 }
 
 void FootstepDetectorAudioProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
+    // CRASH PREVENTION: Safe state loading with validation
+    if (data == nullptr || sizeInBytes < 9) // Minimum size check
+        return;
+        
     juce::MemoryInputStream mis(data, static_cast<size_t>(sizeInBytes), false);
     
-    if (mis.getNumBytesRemaining() >= 9)
+    if (mis.getNumBytesRemaining() >= 9) // 4+4+1 bytes
     {
-        sensitivityParam = juce::jlimit(0.0f, 1.0f, mis.readFloat());
-        gainParam = juce::jlimit(1.0f, 5.0f, mis.readFloat());
-        bypassParam = mis.readBool();
+        float newSensitivity = mis.readFloat();
+        float newGain = mis.readFloat();
+        bool newBypass = mis.readBool();
+        
+        // CRASH PREVENTION: Validate and clamp all loaded values
+        sensitivityParam = juce::jlimit(0.0f, 1.0f, newSensitivity);
+        gainParam = juce::jlimit(1.0f, 5.0f, newGain);
+        bypassParam = newBypass;
     }
 }
 

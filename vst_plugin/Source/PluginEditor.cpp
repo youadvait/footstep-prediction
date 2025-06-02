@@ -1,16 +1,19 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-FootstepDetectorEditor::FootstepDetectorEditor (FootstepDetectorProcessor& p)
-    : AudioProcessorEditor (&p), audioProcessor (p)
+FootstepDetectorAudioProcessorEditor::FootstepDetectorAudioProcessorEditor(FootstepDetectorAudioProcessor& p)
+    : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    // Initialize UI components safely
-    sensitivitySlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    // Sensitivity slider
     sensitivitySlider.setRange(0.0, 1.0, 0.01);
-    sensitivitySlider.setValue(0.5);
-    sensitivitySlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
-    sensitivitySlider.onValueChange = [this] { 
-        audioProcessor.setSensitivity(static_cast<float>(sensitivitySlider.getValue())); 
+    sensitivitySlider.setValue(audioProcessor.sensitivityParam);
+    sensitivitySlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    sensitivitySlider.onValueChange = [this]()
+    {
+        // CRASH PREVENTION: Safe parameter update
+        float newValue = static_cast<float>(sensitivitySlider.getValue());
+        newValue = juce::jlimit(0.0f, 1.0f, newValue);
+        audioProcessor.sensitivityParam = newValue;
     };
     addAndMakeVisible(sensitivitySlider);
     
@@ -18,68 +21,59 @@ FootstepDetectorEditor::FootstepDetectorEditor (FootstepDetectorProcessor& p)
     sensitivityLabel.attachToComponent(&sensitivitySlider, true);
     addAndMakeVisible(sensitivityLabel);
     
-    gainSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    gainSlider.setRange(1.0, 10.0, 0.1);
-    gainSlider.setValue(3.0);
-    gainSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
-    gainSlider.onValueChange = [this] { 
-        audioProcessor.setFootstepGain(static_cast<float>(gainSlider.getValue())); 
+    // Gain slider
+    gainSlider.setRange(1.0, 5.0, 0.1);
+    gainSlider.setValue(audioProcessor.gainParam);
+    gainSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    gainSlider.onValueChange = [this]()
+    {
+        // CRASH PREVENTION: Safe parameter update
+        float newValue = static_cast<float>(gainSlider.getValue());
+        newValue = juce::jlimit(1.0f, 5.0f, newValue);
+        audioProcessor.gainParam = newValue;
     };
     addAndMakeVisible(gainSlider);
     
-    gainLabel.setText("Footstep Gain", juce::dontSendNotification);
+    gainLabel.setText("Gain", juce::dontSendNotification);
     gainLabel.attachToComponent(&gainSlider, true);
     addAndMakeVisible(gainLabel);
     
+    // Bypass button
     bypassButton.setButtonText("Bypass");
+    bypassButton.setToggleState(audioProcessor.bypassParam, juce::dontSendNotification);
+    bypassButton.onStateChange = [this]()
+    {
+        audioProcessor.bypassParam = bypassButton.getToggleState();
+    };
     addAndMakeVisible(bypassButton);
-
-    // NO TIMER - avoid string formatting issues completely
-    setSize(400, 150);
+    
+    setSize(400, 300);
 }
 
-FootstepDetectorEditor::~FootstepDetectorEditor()
+FootstepDetectorAudioProcessorEditor::~FootstepDetectorAudioProcessorEditor()
 {
 }
 
-void FootstepDetectorEditor::paint (juce::Graphics& g)
+void FootstepDetectorAudioProcessorEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour::fromRGB(40, 42, 54));
+    g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
     
     g.setColour(juce::Colours::white);
-    g.setFont(20.0f);
-    g.drawFittedText("🎮 COD Footstep Detector", getLocalBounds().removeFromTop(30), juce::Justification::centred, 1);
+    g.setFont(24.0f);
+    g.drawFittedText("FootstepDetector", getLocalBounds().removeFromTop(60), juce::Justification::centred, 1);
     
-    // SIMPLE static confidence display (no dynamic updates to avoid string issues)
-    auto confidenceArea = getLocalBounds().removeFromBottom(40).reduced(20, 10);
-    
-    g.setColour(juce::Colours::darkgrey);
-    g.drawRect(confidenceArea, 2);
-    
-    g.setColour(juce::Colours::white);
-    g.drawFittedText("Confidence: Check Console", confidenceArea, juce::Justification::centred, 1);
+    g.setFont(14.0f);
+    g.drawFittedText("Call of Duty Footstep Enhancement", getLocalBounds().removeFromTop(100).removeFromBottom(40), juce::Justification::centred, 1);
 }
 
-void FootstepDetectorEditor::resized()
+void FootstepDetectorAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds();
-    area.removeFromTop(35);
-    area.removeFromBottom(50);
+    area.removeFromTop(100); // Space for title
     
-    auto sliderHeight = 35;
-    auto margin = 10;
+    auto sliderArea = area.removeFromTop(80);
+    sensitivitySlider.setBounds(sliderArea.removeFromLeft(180).reduced(10));
+    gainSlider.setBounds(sliderArea.removeFromLeft(180).reduced(10));
     
-    auto sensitivityArea = area.removeFromTop(sliderHeight);
-    sensitivityArea.removeFromLeft(100);
-    sensitivitySlider.setBounds(sensitivityArea.reduced(margin, 5));
-    
-    area.removeFromTop(margin);
-    
-    auto gainArea = area.removeFromTop(sliderHeight);
-    gainArea.removeFromLeft(100);
-    gainSlider.setBounds(gainArea.reduced(margin, 5));
-    
-    area.removeFromTop(margin);
-    
-    bypassButton.setBounds(area.removeFromTop(30).reduced(margin, 0));
+    bypassButton.setBounds(area.removeFromTop(40).reduced(20));
 }
