@@ -7,6 +7,7 @@
 #include <juce_dsp/juce_dsp.h>
 #include "FootstepClassifier.h"
 #include <atomic>
+#include <fstream>  // ADDED for file logging
 
 class FootstepDetectorAudioProcessor : public juce::AudioProcessor
 {
@@ -48,12 +49,15 @@ public:
 private:
     std::unique_ptr<FootstepClassifier> footstepClassifier;
     
-    // Enhanced multi-band amplification system (40-500Hz focus)
+    // Enhanced multi-band amplification system
     std::vector<std::vector<float>> amplificationFilters;
     
     // Thread-safe debug counters
     std::atomic<int> debugCounter{0};
     std::atomic<int> detectionCount{0};
+    
+    // ADDED: File-based debugging
+    std::ofstream debugFile;
     
     // Advanced amplification methods
     float applyAdvancedAmplification(float inputSample, float gain, int channel);

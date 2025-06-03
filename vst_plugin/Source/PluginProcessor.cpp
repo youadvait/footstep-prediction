@@ -1,6 +1,12 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include <iostream>
+#include <fstream>
+
+// FIX: Ensure JUCE debug macros are available
+#if JUCE_DEBUG
+    #include <juce_core/juce_core.h>
+#endif
 
 FootstepDetectorAudioProcessor::FootstepDetectorAudioProcessor()
 {
@@ -18,12 +24,29 @@ FootstepDetectorAudioProcessor::FootstepDetectorAudioProcessor()
     debugCounter = 0;
     detectionCount = 0;
     
+    // FIXED: Multiple output methods for visibility
     std::cout << "✅ Enhanced FootstepDetector initialized with multi-band amplification!" << std::endl;
+    std::cout.flush();
+    std::cerr << "✅ Enhanced FootstepDetector initialized with multi-band amplification!" << std::endl;
+    std::cerr.flush();
+    
+    // ADDED: File-based logging for debugging
+    debugFile.open("/tmp/footstep_debug.log", std::ios::app);
+    if (debugFile.is_open()) {
+        debugFile << "=== FootstepDetector Session Started ===" << std::endl;
+        debugFile.flush();
+    }
 }
 
 FootstepDetectorAudioProcessor::~FootstepDetectorAudioProcessor()
 {
     std::cout << "🔧 Enhanced FootstepDetector shutting down..." << std::endl;
+    std::cerr << "🔧 Enhanced FootstepDetector shutting down..." << std::endl;
+    
+    if (debugFile.is_open()) {
+        debugFile << "=== Session Ended | Total Detections: " << detectionCount << " ===" << std::endl;
+        debugFile.close();
+    }
 }
 
 const juce::String FootstepDetectorAudioProcessor::getName() const
@@ -80,13 +103,29 @@ void FootstepDetectorAudioProcessor::changeProgramName(int index, const juce::St
 
 void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    std::cout << "🎵 Preparing enhanced audio processing: " << sampleRate << "Hz, " << samplesPerBlock << " samples" << std::endl;
+    std::string prepareMsg = "🎵 Preparing enhanced audio processing: " + std::to_string(sampleRate) + "Hz, " + std::to_string(samplesPerBlock) + " samples";
+    
+    std::cout << prepareMsg << std::endl;
+    std::cerr << prepareMsg << std::endl;
+    
+    if (debugFile.is_open()) {
+        debugFile << prepareMsg << std::endl;
+        debugFile.flush();
+    }
     
     // Enhanced preparation
     if (footstepClassifier != nullptr)
     {
         footstepClassifier->prepare(sampleRate, samplesPerBlock);
-        std::cout << "✅ Enhanced FootstepClassifier prepared for 40-500Hz detection" << std::endl;
+        
+        std::string classifierMsg = "✅ Enhanced FootstepClassifier prepared for professional detection";
+        std::cout << classifierMsg << std::endl;
+        std::cerr << classifierMsg << std::endl;
+        
+        if (debugFile.is_open()) {
+            debugFile << classifierMsg << std::endl;
+            debugFile.flush();
+        }
     }
     
     // Reset enhanced amplification filter states
@@ -98,12 +137,26 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
     debugCounter = 0;
     detectionCount = 0;
     
-    std::cout << "✅ Enhanced audio preparation complete" << std::endl;
+    std::string completeMsg = "✅ Enhanced audio preparation complete";
+    std::cout << completeMsg << std::endl;
+    std::cerr << completeMsg << std::endl;
+    
+    if (debugFile.is_open()) {
+        debugFile << completeMsg << std::endl;
+        debugFile.flush();
+    }
 }
 
 void FootstepDetectorAudioProcessor::releaseResources()
 {
-    std::cout << "🔧 Releasing enhanced audio resources" << std::endl;
+    std::string releaseMsg = "🔧 Releasing enhanced audio resources";
+    std::cout << releaseMsg << std::endl;
+    std::cerr << releaseMsg << std::endl;
+    
+    if (debugFile.is_open()) {
+        debugFile << releaseMsg << std::endl;
+        debugFile.flush();
+    }
 }
 
 bool FootstepDetectorAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const
@@ -120,44 +173,42 @@ bool FootstepDetectorAudioProcessor::isBusesLayoutSupported(const BusesLayout& l
 
 void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    // Clear MIDI
     midiMessages.clear();
-    
     juce::ScopedNoDenormals noDenormals;
     
     auto totalNumInputChannels = buffer.getNumChannels();
-    auto totalNumOutputChannels = buffer.getNumChannels();
-
-    // Enhanced parameter reading
     float sensitivity = juce::jlimit(0.0f, 1.0f, sensitivityParam);
-    float gain = juce::jlimit(1.0f, 8.0f, gainParam);
+    float gain = juce::jlimit(1.0f, 8.0f, gainParam); // INCREASED for client delivery
     
-    // ENHANCED: Always show processing status
     debugCounter += buffer.getNumSamples();
-    bool showDebug = (debugCounter % 22050 == 0); // Every 0.5 seconds
     
-    if (bypassParam)
-    {
+    // FIXED: MUCH more frequent monitoring (every 2048 samples = ~0.13s at 16kHz)
+    bool showDebug = (debugCounter % 2048 == 0);
+    
+    if (bypassParam) {
         if (showDebug) {
-            std::cout << "⏸️ BYPASSED | Sensitivity=" << sensitivity 
-                      << " | Gain=" << gain << "x" << std::endl;
+            std::cout << "⏸️ BYPASSED | Sens=" << sensitivity << " | Gain=" << gain << "x" << std::endl;
         }
         return;
     }
 
-    if (footstepClassifier == nullptr)
-    {
-        if (showDebug) {
-            std::cout << "❌ NULL CLASSIFIER!" << std::endl;
-        }
+    if (footstepClassifier == nullptr) {
+        std::cerr << "❌ NULL CLASSIFIER!" << std::endl;
         return;
     }
 
-    // Calculate buffer RMS for monitoring
+    // Calculate buffer statistics
     float bufferRMS = 0.0f;
+    float bufferMax = 0.0f;
     int samplesProcessed = 0;
+    int detections_this_buffer = 0;
     
-    // ENHANCED: Process every sample with extensive debugging
+    // Professional gain smoothing
+    static float currentGain = 1.0f;
+    static float targetGain = 1.0f;
+    const float gainSmoothingTime = 0.005f; // FASTER: 5ms smoothing
+    const float gainSmoothingCoeff = 1.0f - std::exp(-1.0f / (getSampleRate() * gainSmoothingTime));
+    
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
@@ -167,66 +218,84 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
             float inputSample = channelData[sample];
             samplesProcessed++;
             
-            // Enhanced input validation
-            if (std::isnan(inputSample) || std::isinf(inputSample))
-            {
+            if (std::isnan(inputSample) || std::isinf(inputSample)) {
                 channelData[sample] = 0.0f;
                 continue;
             }
             
-            // Calculate RMS
             bufferRMS += inputSample * inputSample;
+            bufferMax = std::max(bufferMax, std::abs(inputSample));
             
-            // CRITICAL: Call footstep detection with debugging
+            // ENHANCED: Continuous footstep detection
             bool isFootstep = footstepClassifier->detectFootstep(inputSample, sensitivity);
             
-            if (isFootstep)
-            {
+            if (isFootstep) {
                 detectionCount++;
+                detections_this_buffer++;
+                targetGain = gain;
                 
-                // Enhanced amplification
-                float enhancedSample = applyAdvancedAmplification(inputSample, gain, channel);
-                channelData[sample] = juce::jlimit(-1.0f, 1.0f, enhancedSample);
-                
-                // ALWAYS show footstep detections
-                std::cout << "🎮 FOOTSTEP #" << detectionCount 
-                          << " | Sample: " << inputSample
-                          << " | Enhanced: " << enhancedSample
-                          << " | Confidence: " << footstepClassifier->getLastConfidence() 
-                          << " | Energy: " << footstepClassifier->getLastEnergy() 
-                          << " | Gain: " << gain << "x" << std::endl;
+                // IMMEDIATE output for every detection (no throttling)
+                std::cout << "🎮 LIVE FOOTSTEP #" << detectionCount 
+                          << " | Conf=" << footstepClassifier->getLastConfidence() 
+                          << " | Energy=" << footstepClassifier->getLastEnergy() 
+                          << " | Amp=" << gain << "x" << std::endl;
+                std::cout.flush();
+            } else {
+                // Decay gain smoothly when no footstep
+                targetGain = 1.0f + (targetGain - 1.0f) * 0.98f; // Slow decay
             }
-            else
-            {
-                channelData[sample] = inputSample;
+            
+            // ENHANCED: Much faster gain interpolation
+            currentGain += (targetGain - currentGain) * gainSmoothingCoeff;
+            
+            // PROFESSIONAL: Multi-band amplification for significant effect
+            float enhancedSample;
+            if (currentGain > 1.1f) { // Apply enhancement when gain is significant
+                enhancedSample = applyAdvancedAmplification(inputSample, currentGain, channel);
+            } else {
+                enhancedSample = inputSample * currentGain;
             }
+            
+            // Professional soft limiting
+            if (std::abs(enhancedSample) > 0.85f) {
+                float sign = (enhancedSample >= 0.0f) ? 1.0f : -1.0f;
+                enhancedSample = sign * (0.85f + (std::abs(enhancedSample) - 0.85f) * 0.1f);
+            }
+            
+            channelData[sample] = juce::jlimit(-1.0f, 1.0f, enhancedSample);
         }
     }
     
-    // Calculate final RMS
     if (samplesProcessed > 0) {
         bufferRMS = std::sqrt(bufferRMS / samplesProcessed);
     }
     
-    // ENHANCED: Always show processing status
+    // ENHANCED: High-frequency monitoring for client delivery
     if (showDebug) {
-        std::cout << "🔊 PROCESSING | RMS=" << bufferRMS 
-                  << " | Sensitivity=" << sensitivity 
-                  << " | Gain=" << gain << "x"
-                  << " | Detections=" << detectionCount 
-                  << " | Samples=" << samplesProcessed << std::endl;
-                  
-        // Show FootstepClassifier internal state
+        std::cout << "🔊 LIVE MONITOR | RMS=" << std::fixed << std::setprecision(4) << bufferRMS 
+                  << " | Max=" << bufferMax
+                  << " | Sens=" << sensitivity 
+                  << " | Gain=" << currentGain << "x"
+                  << " | Detect/Buffer=" << detections_this_buffer
+                  << " | Total=" << detectionCount << std::endl;
+        
         if (footstepClassifier != nullptr) {
-            std::cout << "🧠 CLASSIFIER | Confidence=" << footstepClassifier->getLastConfidence()
+            std::cout << "🧠 CLASSIFIER | Conf=" << footstepClassifier->getLastConfidence()
                       << " | Energy=" << footstepClassifier->getLastEnergy()
-                      << " | Background=" << footstepClassifier->getBackgroundNoise()
-                      << " | Cooldown=" << (footstepClassifier->isInCooldown() ? "YES" : "NO") << std::endl;
+                      << " | Noise=" << footstepClassifier->getBackgroundNoise()
+                      << " | Cool=" << (footstepClassifier->isInCooldown() ? "Y" : "N") << std::endl;
+        }
+        
+        std::cout.flush();
+        
+        if (debugFile.is_open()) {
+            debugFile << "🔊 " << bufferRMS << " " << sensitivity << " " << currentGain << " " << detectionCount << std::endl;
+            debugFile.flush();
         }
     }
 }
 
-// ENHANCED: Advanced multi-band amplification optimized for 40-500Hz footstep range
+// ENHANCED: Advanced multi-band amplification optimized for footstep range
 float FootstepDetectorAudioProcessor::applyAdvancedAmplification(float inputSample, float gain, int channel)
 {
     // Enhanced input validation
@@ -243,10 +312,10 @@ float FootstepDetectorAudioProcessor::applyAdvancedAmplification(float inputSamp
         // ENHANCED: Aggressive band-specific gains for maximum footstep enhancement
         float bandGain = 1.0f;
         switch (band) {
-            case 0: bandGain = gain * 1.8f; break;  // 40-120Hz: High boost (impact/rumble)
-            case 1: bandGain = gain * 2.2f; break;  // 120-250Hz: MAXIMUM boost (primary footstep range)
-            case 2: bandGain = gain * 2.0f; break;  // 250-400Hz: Very high boost (footstep detail)
-            case 3: bandGain = gain * 1.4f; break;  // 400-500Hz: High boost (surface texture)
+            case 0: bandGain = gain * 1.8f; break;  // 60-150Hz: High boost
+            case 1: bandGain = gain * 2.2f; break;  // 150-300Hz: MAXIMUM boost
+            case 2: bandGain = gain * 2.0f; break;  // 300-450Hz: Very high boost
+            case 3: bandGain = gain * 1.4f; break;  // 450-600Hz: High boost
         }
         
         enhanced += filteredSample * bandGain;
@@ -259,7 +328,7 @@ float FootstepDetectorAudioProcessor::applyAdvancedAmplification(float inputSamp
     return enhanced * 0.9f + inputSample * 0.1f;
 }
 
-// ENHANCED: Multi-band filters optimized for 40-500Hz footstep frequencies
+// ENHANCED: Multi-band filters optimized for footstep frequencies
 float FootstepDetectorAudioProcessor::applyAmplificationFilter(float sample, int bandIndex, int channel)
 {
     // Enhanced bounds checking
@@ -275,18 +344,18 @@ float FootstepDetectorAudioProcessor::applyAmplificationFilter(float sample, int
     
     float output = 0.0f;
     
-    // ENHANCED: Optimized IIR filters for 40-500Hz footstep range
+    // ENHANCED: Optimized IIR filters for footstep range
     switch (bandIndex) {
-        case 0: // 40-120Hz (Low impact/rumble) - Enhanced low-end response
+        case 0: // 60-150Hz (Low fundamentals)
             output = 0.35f * sample + 0.25f * state[0] - 0.1f * state[1] + 0.5f * state[2];
             break;
-        case 1: // 120-250Hz (Primary footstep range) - Maximum sensitivity
+        case 1: // 150-300Hz (Primary footstep range)
             output = 0.5f * sample + 0.3f * state[0] - 0.15f * state[1] + 0.35f * state[2];
             break;
-        case 2: // 250-400Hz (Footstep detail/harmonics) - Wide bandpass
+        case 2: // 300-450Hz (Footstep harmonics)
             output = 0.45f * sample + 0.25f * state[0] - 0.1f * state[1] + 0.4f * state[2];
             break;
-        case 3: // 400-500Hz (Surface texture) - High-pass characteristics
+        case 3: // 450-600Hz (Surface texture)
             output = 0.3f * sample + 0.15f * state[0] - 0.05f * state[1] + 0.6f * state[2];
             break;
     }

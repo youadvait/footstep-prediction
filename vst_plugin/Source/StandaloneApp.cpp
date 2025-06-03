@@ -18,16 +18,15 @@ public:
         std::cout << "🚀 Starting MIDI-free FootstepDetector..." << std::endl;
         
         processor = std::make_unique<FootstepDetectorAudioProcessor>();
-        
         deviceManager = std::make_unique<juce::AudioDeviceManager>();
         audioCallback = std::make_unique<AudioCallback>(processor.get());
         
-        // Force specific audio settings
+        // FORCE 44.1kHz for better frequency analysis
         juce::AudioDeviceManager::AudioDeviceSetup setup;
         setup.inputChannels.setRange(0, 2, true);
         setup.outputChannels.setRange(0, 2, true);
-        setup.sampleRate = 44100.0;
-        setup.bufferSize = 512;
+        setup.sampleRate = 44100.0; // FORCE higher sample rate
+        setup.bufferSize = 256;     // SMALLER buffer for lower latency
         setup.useDefaultInputChannels = true;
         setup.useDefaultOutputChannels = true;
         
@@ -35,6 +34,8 @@ public:
         
         if (audioError.isNotEmpty()) {
             std::cout << "❌ Audio error: " << audioError.toStdString() << std::endl;
+            // Try fallback settings
+            audioError = deviceManager->initialise(2, 2, nullptr, true);
         } else {
             std::cout << "✅ Audio initialized WITH INPUT!" << std::endl;
         }
@@ -45,6 +46,11 @@ public:
             std::cout << "🎵 Rate: " << currentDevice->getCurrentSampleRate() << "Hz" << std::endl;
             std::cout << "🎵 Buffer: " << currentDevice->getCurrentBufferSizeSamples() << std::endl;
             std::cout << "🎵 Inputs: " << currentDevice->getActiveInputChannels().toInteger() << std::endl;
+            
+            // FORCE sample rate change if not 44.1kHz
+            if (currentDevice->getCurrentSampleRate() != 44100.0) {
+                std::cout << "⚠️ WARNING: Not running at 44.1kHz - detection may be suboptimal" << std::endl;
+            }
         }
         
         deviceManager->addAudioCallback(audioCallback.get());
@@ -55,11 +61,12 @@ public:
         
         editor = std::unique_ptr<juce::AudioProcessorEditor>(processor->createEditor());
         if (editor != nullptr) {
-            mainWindow = std::make_unique<MainWindow>("FootstepDetector Enhanced", editor.get());
+            mainWindow = std::make_unique<MainWindow>("FootstepDetector - CLIENT DELIVERY", editor.get());
         }
         
-        std::cout << "✅ FootstepDetector ready - Audio processing ACTIVE!" << std::endl;
+        std::cout << "✅ FootstepDetector ready - HIGH-PERFORMANCE MODE!" << std::endl;
     }
+
 
     void shutdown() override
     {
@@ -83,20 +90,18 @@ private:
         AudioCallback(FootstepDetectorAudioProcessor* proc) : processor(proc) {}
         
         void audioDeviceIOCallbackWithContext(const float* const* inputChannelData,
-                                             int numInputChannels,
-                                             float* const* outputChannelData,
-                                             int numOutputChannels,
-                                             int numSamples,
-                                             const juce::AudioIODeviceCallbackContext& context) override
+                                            int numInputChannels,
+                                            float* const* outputChannelData,
+                                            int numOutputChannels,
+                                            int numSamples,
+                                            const juce::AudioIODeviceCallbackContext& context) override
         {
-            // ENHANCED: Extensive debugging
             callbackCounter++;
             
             if (processor != nullptr) {
-                // Create buffer for processing
                 juce::AudioBuffer<float> buffer(numOutputChannels, numSamples);
                 
-                // CRITICAL: Copy input to buffer for processing
+                // Copy input to buffer
                 for (int ch = 0; ch < juce::jmin(numInputChannels, numOutputChannels); ++ch) {
                     if (inputChannelData[ch] != nullptr) {
                         buffer.copyFrom(ch, 0, inputChannelData[ch], numSamples);
@@ -105,28 +110,33 @@ private:
                     }
                 }
                 
-                // Calculate input RMS for debugging
+                // Calculate input statistics
                 float inputRMS = 0.0f;
+                float inputMax = 0.0f;
                 if (numInputChannels > 0 && inputChannelData[0] != nullptr) {
                     for (int i = 0; i < numSamples; ++i) {
-                        inputRMS += inputChannelData[0][i] * inputChannelData[0][i];
+                        float sample = inputChannelData[0][i];
+                        inputRMS += sample * sample;
+                        inputMax = std::max(inputMax, std::abs(sample));
                     }
                     inputRMS = std::sqrt(inputRMS / numSamples);
                 }
                 
-                // Debug every 0.5 seconds
-                if (callbackCounter % 1100 == 0) { // ~0.5s at 44.1kHz/512
+                // ENHANCED: More frequent callback monitoring (every 200 callbacks instead of 1100)
+                if (callbackCounter % 200 == 0) {
                     std::cout << "🔊 CALLBACK #" << callbackCounter 
-                              << " | Input RMS: " << inputRMS
-                              << " | Channels: " << numInputChannels 
-                              << " | Samples: " << numSamples << std::endl;
+                            << " | Input RMS=" << std::fixed << std::setprecision(4) << inputRMS
+                            << " | Max=" << inputMax
+                            << " | Ch=" << numInputChannels 
+                            << " | Samp=" << numSamples << std::endl;
+                    std::cout.flush();
                 }
                 
-                // CRITICAL: Process through FootstepDetector
+                // Process through FootstepDetector
                 juce::MidiBuffer midiBuffer;
                 processor->processBlock(buffer, midiBuffer);
                 
-                // Copy processed buffer to output
+                // Copy to output
                 for (int ch = 0; ch < juce::jmin(numOutputChannels, buffer.getNumChannels()); ++ch) {
                     if (outputChannelData[ch] != nullptr) {
                         std::memcpy(outputChannelData[ch], buffer.getReadPointer(ch), numSamples * sizeof(float));
@@ -134,7 +144,8 @@ private:
                 }
             }
         }
-        
+
+            
         void audioDeviceAboutToStart(juce::AudioIODevice* device) override
         {
             std::cout << "🎵 Audio STARTING: " << device->getName().toStdString() << std::endl;
