@@ -6,6 +6,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
 #include "FootstepClassifier.h"
+#include <atomic>
 
 class FootstepDetectorAudioProcessor : public juce::AudioProcessor
 {
@@ -39,13 +40,25 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
-    // Simple parameter members (using basic types - thread-safe)
+    // Enhanced parameter range for significant amplification
     float sensitivityParam = 0.5f;
     float gainParam = 3.0f;
     bool bypassParam = false;
 
 private:
     std::unique_ptr<FootstepClassifier> footstepClassifier;
+    
+    // Enhanced multi-band amplification system (40-500Hz focus)
+    std::vector<std::vector<float>> amplificationFilters;
+    
+    // Thread-safe debug counters
+    std::atomic<int> debugCounter{0};
+    std::atomic<int> detectionCount{0};
+    
+    // Advanced amplification methods
+    float applyAdvancedAmplification(float inputSample, float gain, int channel);
+    float applyAmplificationFilter(float sample, int bandIndex, int channel);
+    float applyDynamicCompression(float sample);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FootstepDetectorAudioProcessor)
 };
