@@ -365,6 +365,14 @@ void FootstepDetectorAudioProcessor::getEditorSize(int& width, int& height)
     height = 300;
 }
 
+namespace juce
+{
+    float JUCE_CALLTYPE handleManufacturerSpecificVST2Opcode (int, long long, void*, float)
+    {
+        return 0.0f; // Return 0 for unsupported opcodes
+    }
+}
+
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new FootstepDetectorAudioProcessor();
