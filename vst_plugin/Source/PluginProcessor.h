@@ -22,7 +22,11 @@ public:
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
     juce::AudioProcessorEditor* createEditor() override;
-    bool hasEditor() const override;
+
+    bool hasEditor() const override { return true; }
+    juce::AudioProcessorEditor* createEditor() override;
+    
+    void getEditorSize(int& width, int& height);
 
     const juce::String getName() const override;
 
@@ -56,8 +60,12 @@ private:
     std::vector<juce::dsp::IIR::Filter<float>> midShelfFilter;   // 300Hz band
     std::vector<juce::dsp::IIR::Filter<float>> highShelfFilter;  // 450Hz band
     
+    mutable juce::CriticalSection processingLock;
+    std::atomic<bool> isProcessing{false};
+
     float applyFootstepEQ(float sample, int channel);
     float applyMultiBandEQ(float sample, int channel); // ENHANCED: Multi-band processing
+    float applySaturation(float sample);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FootstepDetectorAudioProcessor)
 };

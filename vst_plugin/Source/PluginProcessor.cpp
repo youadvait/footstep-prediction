@@ -121,7 +121,7 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             180.0f,  // Low footstep frequencies
             0.8f,    // Q factor
-            18.0f    // 18dB gain for obvious amplification
+            25.0f    // 18dB gain for obvious amplification
         );
     }
     
@@ -132,7 +132,7 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             300.0f,  // Mid footstep frequencies
             0.7f,    // Q factor
-            15.0f    // 15dB gain
+            22.0f    // 15dB gain
         );
     }
     
@@ -143,9 +143,22 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             450.0f,  // High footstep frequencies
             0.6f,    // Q factor
-            12.0f    // 12dB gain
+            18.0f    // 12dB gain
         );
     }
+}
+
+void FootstepDetectorAudioProcessor::getEditorSize(int& width, int& height)
+{
+    // Provide default size to prevent EqualizerAPO crash
+    width = 400;
+    height = 300;
+}
+
+juce::AudioProcessorEditor* FootstepDetectorAudioProcessor::createEditor()
+{
+    // Return generic editor for EqualizerAPO compatibility
+    return new juce::GenericAudioProcessorEditor(*this);
 }
 
 void FootstepDetectorAudioProcessor::releaseResources()
@@ -209,11 +222,16 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
             
             if (isFootstep)
             {
-                // ENHANCED: Apply multi-band EQ + gain for aggressive footstep enhancement
+                // ENHANCED: Apply multi-band EQ + gain + saturation for massive enhancement
                 float multiBandSample = applyMultiBandEQ(inputSample, channel);
                 float amplified = multiBandSample * gain;
+                
+                // ADD: Aggressive saturation for maximum audible effect
+                amplified = applySaturation(amplified);
+                
                 channelData[sample] = juce::jlimit(-1.0f, 1.0f, amplified);
             }
+            
             else
             {
                 // ALWAYS apply subtle EQ for footstep frequency enhancement
@@ -222,6 +240,28 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
         }
     }
 }
+
+// ADD: Aggressive saturation for maximum footstep enhancement
+float FootstepDetectorAudioProcessor::applySaturation(float sample)
+{
+    // Soft saturation for harmonics and perceived loudness
+    float saturated = sample;
+    
+    if (std::abs(sample) > 0.3f) {
+        float sign = (sample >= 0.0f) ? 1.0f : -1.0f;
+        float abs_sample = std::abs(sample);
+        
+        // Aggressive saturation curve
+        saturated = sign * (0.3f + (abs_sample - 0.3f) * 0.4f + 
+                           std::sin((abs_sample - 0.3f) * 3.14159f) * 0.1f);
+    }
+    
+    // Additional harmonic enhancement
+    saturated += std::sin(sample * 6.28318f) * 0.05f; // 2nd harmonic
+    
+    return saturated * 1.5f; // Extra boost
+}
+
 
 // Simple EQ-based footstep enhancement
 float FootstepDetectorAudioProcessor::applyFootstepEQ(float sample, int channel)
@@ -249,7 +289,7 @@ float FootstepDetectorAudioProcessor::applyMultiBandEQ(float sample, int channel
     float highBand = highShelfFilter[channel].processSample(sample);  // 450Hz boost
     
     // Combine bands with weighted mixing for natural sound
-    float enhanced = (lowBand * 0.4f) + (midBand * 0.35f) + (highBand * 0.25f);
+    float enhanced = (lowBand * 0.6f) + (midBand * 0.5f) + (highBand * 0.4f);
     
     return enhanced;
 }

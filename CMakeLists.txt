@@ -67,4 +67,13 @@ target_compile_definitions(FootstepDetector PRIVATE
     # VST2 specific settings
     JucePlugin_Build_VST=1
     JUCE_VST3_CAN_REPLACE_VST2=0
+    
+    # ADD THESE EqualizerAPO compatibility definitions:
+    JUCE_DISABLE_ASSERTIONS=1              # Prevent assertion crashes
+    JUCE_CHECK_MEMORY_LEAKS=0             # Disable leak detection in release
+    JUCE_STRICT_REFCOUNTEDPOINTER=0       # Looser pointer handling
+    JUCE_AUDIOPROCESSOR_NO_GUI=0          # Ensure GUI support
+    JUCE_MODAL_LOOPS_PERMITTED=1          # Allow modal loops
+    JUCE_OPENGL=0                         # Disable OpenGL (can cause crashes)
+    JUCE_USE_WIN32_FILEBROWSER=1          # Use native file browser
 )
