@@ -317,6 +317,54 @@ void FootstepDetectorAudioProcessor::setStateInformation(const void* data, int s
             parameters.replaceState (juce::ValueTree::fromXml (*xmlState));
 }
 
+// ADD THESE MISSING PARAMETER METHODS:
+
+float FootstepDetectorAudioProcessor::getParameter(int index)
+{
+    switch (index) {
+        case 0: return sensitivityParam->load();
+        case 1: return (gainParam->load() - 1.0f) / 7.0f; // Normalize 1-8 to 0-1
+        case 2: return bypassParam->load();
+        default: return 0.0f;
+    }
+}
+
+void FootstepDetectorAudioProcessor::setParameter(int index, float value)
+{
+    switch (index) {
+        case 0: sensitivityParam->store(juce::jlimit(0.0f, 1.0f, value)); break;
+        case 1: gainParam->store(1.0f + (juce::jlimit(0.0f, 1.0f, value) * 7.0f)); break;
+        case 2: bypassParam->store(value > 0.5f ? 1.0f : 0.0f); break;
+    }
+}
+
+const juce::String FootstepDetectorAudioProcessor::getParameterName(int index)
+{
+    switch (index) {
+        case 0: return "Sensitivity";
+        case 1: return "Gain";
+        case 2: return "Bypass";
+        default: return {};
+    }
+}
+
+const juce::String FootstepDetectorAudioProcessor::getParameterText(int index)
+{
+    switch (index) {
+        case 0: return juce::String(sensitivityParam->load(), 2);
+        case 1: return juce::String(gainParam->load(), 1) + "x";
+        case 2: return bypassParam->load() > 0.5f ? "On" : "Off";
+        default: return {};
+    }
+}
+
+// ADD: EqualizerAPO compatibility method
+void FootstepDetectorAudioProcessor::getEditorSize(int& width, int& height)
+{
+    width = 400;
+    height = 300;
+}
+
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new FootstepDetectorAudioProcessor();
