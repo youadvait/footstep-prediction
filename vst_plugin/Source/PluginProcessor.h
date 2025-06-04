@@ -74,9 +74,5 @@ private:
     // EqualizerAPO compatibility methods
     void getEditorSize(int& width, int& height);
 
-    // FIXED: Prevent copying due to atomic members (from search result [4])
-    FootstepDetectorAudioProcessor(const FootstepDetectorAudioProcessor&) = delete;
-    FootstepDetectorAudioProcessor& operator=(const FootstepDetectorAudioProcessor&) = delete;
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FootstepDetectorAudioProcessor)
 };
