@@ -89,15 +89,19 @@ int FootstepDetectorAudioProcessor::getCurrentProgram()
 
 void FootstepDetectorAudioProcessor::setCurrentProgram(int index)
 {
+    (void)index;
 }
 
 const juce::String FootstepDetectorAudioProcessor::getProgramName(int index)
 {
+    (void)index;
     return {};
 }
 
 void FootstepDetectorAudioProcessor::changeProgramName(int index, const juce::String& newName)
 {
+    (void)index;
+    (void)newName;
 }
 
 void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
@@ -148,13 +152,6 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
     }
 }
 
-void FootstepDetectorAudioProcessor::getEditorSize(int& width, int& height)
-{
-    // Provide default size to prevent EqualizerAPO crash
-    width = 400;
-    height = 300;
-}
-
 juce::AudioProcessorEditor* FootstepDetectorAudioProcessor::createEditor()
 {
     // Return generic editor for EqualizerAPO compatibility
@@ -179,6 +176,8 @@ bool FootstepDetectorAudioProcessor::isBusesLayoutSupported(const BusesLayout& l
 
 void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    (void)midiMessages;
+
     juce::ScopedNoDenormals noDenormals;
     
     auto totalNumInputChannels = getTotalNumInputChannels();
