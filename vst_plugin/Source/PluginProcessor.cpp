@@ -299,11 +299,6 @@ bool FootstepDetectorAudioProcessor::hasEditor() const
     return true;
 }
 
-juce::AudioProcessorEditor* FootstepDetectorAudioProcessor::createEditor()
-{
-    return new FootstepDetectorAudioProcessorEditor(*this);
-}
-
 void FootstepDetectorAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     // FIXED: Use AudioProcessorValueTreeState for proper state management
