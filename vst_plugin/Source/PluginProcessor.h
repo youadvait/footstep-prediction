@@ -10,7 +10,6 @@
 class FootstepDetectorAudioProcessor : public juce::AudioProcessor
 {
 public:
-    // FIXED: Proper constructor with bus configuration
     FootstepDetectorAudioProcessor();
     ~FootstepDetectorAudioProcessor() override;
 
@@ -21,12 +20,9 @@ public:
 
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
+    // FIXED: Only declare these ONCE
     juce::AudioProcessorEditor* createEditor() override;
-
-    bool hasEditor() const override { return true; }
-    juce::AudioProcessorEditor* createEditor() override;
-    
-    void getEditorSize(int& width, int& height);
+    bool hasEditor() const override;
 
     const juce::String getName() const override;
 
@@ -44,7 +40,14 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
-    // FIXED: Use AudioProcessorValueTreeState for proper parameter management
+    // EqualizerAPO-compatible parameter methods
+    float getParameter(int index) override;
+    void setParameter(int index, float value) override;
+    const juce::String getParameterName(int index) override;
+    const juce::String getParameterText(int index) override;
+    int getNumParameters() override { return 3; }
+
+    // AudioProcessorValueTreeState for proper parameter management
     juce::AudioProcessorValueTreeState parameters;
     
     // Parameter pointers
@@ -55,17 +58,25 @@ public:
 private:
     std::unique_ptr<FootstepClassifier> footstepClassifier;
     std::vector<juce::dsp::IIR::Filter<float>> lowShelfFilter;
+    std::vector<juce::dsp::IIR::Filter<float>> midShelfFilter;
+    std::vector<juce::dsp::IIR::Filter<float>> highShelfFilter;
     
-    // ENHANCED: Additional frequency bands for full footstep spectrum
-    std::vector<juce::dsp::IIR::Filter<float>> midShelfFilter;   // 300Hz band
-    std::vector<juce::dsp::IIR::Filter<float>> highShelfFilter;  // 450Hz band
-    
+    // FIXED: Thread safety for EqualizerAPO (proper initialization)
     mutable juce::CriticalSection processingLock;
-    std::atomic<bool> isProcessing{false};
-
+    
+    // FIXED: Use regular bool instead of atomic to avoid copy constructor issues
+    bool isProcessing = false;
+    
     float applyFootstepEQ(float sample, int channel);
-    float applyMultiBandEQ(float sample, int channel); // ENHANCED: Multi-band processing
+    float applyMultiBandEQ(float sample, int channel);
     float applySaturation(float sample);
+    
+    // EqualizerAPO compatibility methods
+    void getEditorSize(int& width, int& height);
+
+    // FIXED: Prevent copying due to atomic members (from search result [4])
+    FootstepDetectorAudioProcessor(const FootstepDetectorAudioProcessor&) = delete;
+    FootstepDetectorAudioProcessor& operator=(const FootstepDetectorAudioProcessor&) = delete;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FootstepDetectorAudioProcessor)
 };
