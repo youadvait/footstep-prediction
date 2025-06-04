@@ -6,14 +6,15 @@ FootstepDetectorAudioProcessorEditor::FootstepDetectorAudioProcessorEditor(Foots
 {
     // Sensitivity slider
     sensitivitySlider.setRange(0.0, 1.0, 0.01);
-    sensitivitySlider.setValue(audioProcessor.sensitivityParam);
+    // FIXED: Load value from atomic parameter pointer
+    sensitivitySlider.setValue(audioProcessor.sensitivityParam->load());
     sensitivitySlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
     sensitivitySlider.onValueChange = [this]()
     {
-        // CRASH PREVENTION: Safe parameter update
         float newValue = static_cast<float>(sensitivitySlider.getValue());
         newValue = juce::jlimit(0.0f, 1.0f, newValue);
-        audioProcessor.sensitivityParam = newValue;
+        // FIXED: Store value to atomic parameter pointer
+        audioProcessor.sensitivityParam->store(newValue);
     };
     addAndMakeVisible(sensitivitySlider);
     
@@ -22,15 +23,16 @@ FootstepDetectorAudioProcessorEditor::FootstepDetectorAudioProcessorEditor(Foots
     addAndMakeVisible(sensitivityLabel);
     
     // Gain slider
-    gainSlider.setRange(1.0, 5.0, 0.1);
-    gainSlider.setValue(audioProcessor.gainParam);
+    gainSlider.setRange(1.0, 8.0, 0.1);
+    // FIXED: Load value from atomic parameter pointer
+    gainSlider.setValue(audioProcessor.gainParam->load());
     gainSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
     gainSlider.onValueChange = [this]()
     {
-        // CRASH PREVENTION: Safe parameter update
         float newValue = static_cast<float>(gainSlider.getValue());
-        newValue = juce::jlimit(1.0f, 5.0f, newValue);
-        audioProcessor.gainParam = newValue;
+        newValue = juce::jlimit(1.0f, 8.0f, newValue);
+        // FIXED: Store value to atomic parameter pointer
+        audioProcessor.gainParam->store(newValue);
     };
     addAndMakeVisible(gainSlider);
     
@@ -40,10 +42,12 @@ FootstepDetectorAudioProcessorEditor::FootstepDetectorAudioProcessorEditor(Foots
     
     // Bypass button
     bypassButton.setButtonText("Bypass");
-    bypassButton.setToggleState(audioProcessor.bypassParam, juce::dontSendNotification);
+    // FIXED: Load value from atomic parameter pointer
+    bypassButton.setToggleState(audioProcessor.bypassParam->load() > 0.5f, juce::dontSendNotification);
     bypassButton.onStateChange = [this]()
     {
-        audioProcessor.bypassParam = bypassButton.getToggleState();
+        // FIXED: Store boolean as float to atomic parameter pointer
+        audioProcessor.bypassParam->store(bypassButton.getToggleState() ? 1.0f : 0.0f);
     };
     addAndMakeVisible(bypassButton);
     

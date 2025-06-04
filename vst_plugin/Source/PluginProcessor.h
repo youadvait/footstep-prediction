@@ -6,12 +6,11 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_dsp/juce_dsp.h>
 #include "FootstepClassifier.h"
-#include <atomic>
-#include <fstream>  // ADDED for file logging
 
 class FootstepDetectorAudioProcessor : public juce::AudioProcessor
 {
 public:
+    // FIXED: Proper constructor with bus configuration
     FootstepDetectorAudioProcessor();
     ~FootstepDetectorAudioProcessor() override;
 
@@ -41,28 +40,24 @@ public:
     void getStateInformation(juce::MemoryBlock& destData) override;
     void setStateInformation(const void* data, int sizeInBytes) override;
 
-    // Enhanced parameter range for significant amplification
-    float sensitivityParam = 0.5f;
-    float gainParam = 3.0f;
-    bool bypassParam = false;
+    // FIXED: Use AudioProcessorValueTreeState for proper parameter management
+    juce::AudioProcessorValueTreeState parameters;
+    
+    // Parameter pointers
+    std::atomic<float>* sensitivityParam = nullptr;
+    std::atomic<float>* gainParam = nullptr;
+    std::atomic<float>* bypassParam = nullptr;
 
 private:
     std::unique_ptr<FootstepClassifier> footstepClassifier;
+    std::vector<juce::dsp::IIR::Filter<float>> lowShelfFilter;
     
-    // Enhanced multi-band amplification system
-    std::vector<std::vector<float>> amplificationFilters;
+    // ENHANCED: Additional frequency bands for full footstep spectrum
+    std::vector<juce::dsp::IIR::Filter<float>> midShelfFilter;   // 300Hz band
+    std::vector<juce::dsp::IIR::Filter<float>> highShelfFilter;  // 450Hz band
     
-    // Thread-safe debug counters
-    std::atomic<int> debugCounter{0};
-    std::atomic<int> detectionCount{0};
-    
-    // ADDED: File-based debugging
-    std::ofstream debugFile;
-    
-    // Advanced amplification methods
-    float applyAdvancedAmplification(float inputSample, float gain, int channel);
-    float applyAmplificationFilter(float sample, int bandIndex, int channel);
-    float applyDynamicCompression(float sample);
+    float applyFootstepEQ(float sample, int channel);
+    float applyMultiBandEQ(float sample, int channel); // ENHANCED: Multi-band processing
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FootstepDetectorAudioProcessor)
 };
