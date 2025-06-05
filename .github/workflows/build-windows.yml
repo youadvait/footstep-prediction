@@ -12,17 +12,34 @@ jobs:
     runs-on: windows-latest
     
     steps:
-    - name: Checkout code with submodules
+    - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        submodules: 'recursive'
         fetch-depth: 0
         
-    - name: Verify JUCE structure
+    - name: Checkout submodules
       run: |
-        dir JUCE
-        dir JUCE\extras
-        dir JUCE\extras\Build
+        git submodule sync --recursive
+        git submodule update --init --recursive --force --checkout
+        
+    - name: Verify JUCE files exist
+      run: |
+        if (Test-Path "JUCE\extras\Build\CMake\JUCEModuleSupport.cmake") {
+          Write-Host "✅ JUCEModuleSupport.cmake found"
+        } else {
+          Write-Host "❌ JUCEModuleSupport.cmake missing"
+          exit 1
+        }
+        if (Test-Path "JUCE\extras\Build\CMake\JUCEUtils.cmake") {
+          Write-Host "✅ JUCEUtils.cmake found"
+        } else {
+          Write-Host "❌ JUCEUtils.cmake missing"
+          exit 1
+        }
+        
+    - name: List JUCE CMake directory
+      run: |
+        dir JUCE\extras\Build\CMake\
         
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
@@ -30,37 +47,40 @@ jobs:
     - name: Setup CMake
       uses: lukka/get-cmake@latest
       
-    - name: Initialize JUCE submodule manually (fallback)
-      run: |
-        git submodule update --init --recursive --force
-        dir JUCE\extras\Build\CMake
-        
     - name: Configure CMake (Windows x64)
       run: |
-        cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+        cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON
         
     - name: Build VST3 Plugin
       run: |
-        cmake --build build --config Release --target FootstepDetector_VST3 --parallel 4
+        cmake --build build --config Release --target FootstepDetector_VST3 --parallel 4 --verbose
         
     - name: Verify Build Output
       run: |
-        dir build\FootstepDetector_artefacts\Release\VST3\
+        if (Test-Path "build\FootstepDetector_artefacts\Release\VST3\FootstepDetector.vst3") {
+          Write-Host "✅ VST3 plugin built successfully"
+          dir build\FootstepDetector_artefacts\Release\VST3\
+        } else {
+          Write-Host "❌ VST3 plugin build failed"
+          exit 1
+        }
         
     - name: Upload Windows VST3 Artifact
       uses: actions/upload-artifact@v4
       with:
         name: FootstepDetector-Windows-x64-VST3
-        path: build/FootstepDetector_artefacts/Release/VST3/
+        path: build/FootstepDetector_artefacts/Release/VST3/FootstepDetector.vst3
         
     - name: Create Release Package
       run: |
         mkdir FootstepDetector_Windows_Release
-        xcopy build\FootstepDetector_artefacts\Release\VST3\FootstepDetector.vst3 FootstepDetector_Windows_Release\ /E /I
-        echo Installation Instructions: > FootstepDetector_Windows_Release\README.txt
-        echo 1. Copy FootstepDetector.vst3 folder to C:\Program Files\Common Files\VST3\ >> FootstepDetector_Windows_Release\README.txt
-        echo 2. Restart your DAW >> FootstepDetector_Windows_Release\README.txt
-        echo 3. Plugin appears as FootstepTech - FootstepDetector >> FootstepDetector_Windows_Release\README.txt
+        robocopy build\FootstepDetector_artefacts\Release\VST3\FootstepDetector.vst3 FootstepDetector_Windows_Release\FootstepDetector.vst3 /E
+        if ($LASTEXITCODE -le 7) { $LASTEXITCODE = 0 }
+        echo "Installation Instructions:" > FootstepDetector_Windows_Release\README.txt
+        echo "1. Copy FootstepDetector.vst3 folder to C:\Program Files\Common Files\VST3\" >> FootstepDetector_Windows_Release\README.txt
+        echo "2. Restart your DAW" >> FootstepDetector_Windows_Release\README.txt
+        echo "3. Plugin appears as FootstepTech - FootstepDetector" >> FootstepDetector_Windows_Release\README.txt
+        echo "4. Controls: Sensitivity (0-100%%), Gain (1-8x), Bypass" >> FootstepDetector_Windows_Release\README.txt
         
     - name: Upload Release Package
       uses: actions/upload-artifact@v4
