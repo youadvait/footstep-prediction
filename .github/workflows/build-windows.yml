@@ -15,23 +15,90 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       
-    - name: Download JUCE Framework
+    - name: Download and Setup JUCE Framework
       run: |
-        Write-Host "Downloading JUCE 7.0.12..."
-        Invoke-WebRequest -Uri "https://github.com/juce-framework/JUCE/archive/refs/tags/7.0.12.zip" -OutFile "juce.zip"
-        Expand-Archive juce.zip -DestinationPath .
-        Move-Item JUCE-7.0.12 JUCE -Force
-        Write-Host "JUCE downloaded and extracted"
+        Write-Host "=== JUCE Download and Setup ==="
         
-    - name: Verify JUCE installation
+        # Method 1: Try JUCE 7.0.12
+        try {
+          Write-Host "Downloading JUCE 7.0.12..."
+          Invoke-WebRequest -Uri "https://github.com/juce-framework/JUCE/archive/refs/tags/7.0.12.zip" -OutFile "juce.zip" -TimeoutSec 60
+          Write-Host "Download completed. File size: $((Get-Item juce.zip).Length) bytes"
+          
+          Write-Host "Extracting JUCE..."
+          Expand-Archive juce.zip -DestinationPath . -Force
+          
+          Write-Host "Directory contents after extraction:"
+          Get-ChildItem -Name
+          
+          if (Test-Path "JUCE-7.0.12") {
+            Write-Host "Moving JUCE-7.0.12 to JUCE..."
+            if (Test-Path "JUCE") { Remove-Item JUCE -Recurse -Force }
+            Move-Item JUCE-7.0.12 JUCE
+            Write-Host "JUCE setup completed"
+          } else {
+            throw "JUCE-7.0.12 directory not found after extraction"
+          }
+        } catch {
+          Write-Host "Method 1 failed: $_"
+          Write-Host "Trying fallback method..."
+          
+          # Method 2: Try JUCE 6.1.6 (more stable)
+          Invoke-WebRequest -Uri "https://github.com/juce-framework/JUCE/archive/refs/tags/6.1.6.zip" -OutFile "juce616.zip" -TimeoutSec 60
+          Expand-Archive juce616.zip -DestinationPath . -Force
+          if (Test-Path "JUCE") { Remove-Item JUCE -Recurse -Force }
+          Move-Item JUCE-6.1.6 JUCE
+          Write-Host "Fallback JUCE 6.1.6 setup completed"
+        }
+        
+    - name: Debug JUCE Structure
       run: |
-        if (Test-Path "JUCE\extras\Build\CMake\JUCEModuleSupport.cmake") {
+        Write-Host "=== JUCE Structure Debug ==="
+        Write-Host "JUCE directory exists: $(Test-Path JUCE)"
+        if (Test-Path "JUCE") {
+          Write-Host "JUCE contents:"
+          Get-ChildItem JUCE -Name | Sort-Object
+          
+          Write-Host "JUCE/extras exists: $(Test-Path 'JUCE/extras')"
+          if (Test-Path "JUCE/extras") {
+            Write-Host "JUCE/extras contents:"
+            Get-ChildItem JUCE/extras -Name
+            
+            Write-Host "JUCE/extras/Build exists: $(Test-Path 'JUCE/extras/Build')"
+            if (Test-Path "JUCE/extras/Build") {
+              Write-Host "JUCE/extras/Build contents:"
+              Get-ChildItem JUCE/extras/Build -Name
+              
+              Write-Host "JUCE/extras/Build/CMake exists: $(Test-Path 'JUCE/extras/Build/CMake')"
+              if (Test-Path "JUCE/extras/Build/CMake") {
+                Write-Host "JUCE/extras/Build/CMake contents:"
+                Get-ChildItem JUCE/extras/Build/CMake -Name | Select-Object -First 10
+              }
+            }
+          }
+        }
+        
+    - name: Verify JUCE Installation
+      run: |
+        Write-Host "=== JUCE Verification ==="
+        $juceModuleSupport = "JUCE/extras/Build/CMake/JUCEModuleSupport.cmake"
+        $juceUtils = "JUCE/extras/Build/CMake/JUCEUtils.cmake"
+        
+        if (Test-Path $juceModuleSupport) {
           Write-Host "✅ JUCEModuleSupport.cmake found"
         } else {
-          Write-Host "❌ JUCEModuleSupport.cmake missing"
+          Write-Host "❌ JUCEModuleSupport.cmake missing at: $juceModuleSupport"
+          Write-Host "Current directory contents:"
+          Get-ChildItem -Recurse -Name "*JUCEModuleSupport*"
           exit 1
         }
-        dir JUCE\extras\Build\CMake\ | Select-Object -First 5
+        
+        if (Test-Path $juceUtils) {
+          Write-Host "✅ JUCEUtils.cmake found"
+        } else {
+          Write-Host "❌ JUCEUtils.cmake missing at: $juceUtils"
+          exit 1
+        }
         
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
@@ -41,20 +108,28 @@ jobs:
       
     - name: Configure CMake (Windows x64)
       run: |
+        Write-Host "=== CMake Configuration ==="
         cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
         
     - name: Build VST3 Plugin
       run: |
+        Write-Host "=== Building VST3 Plugin ==="
         cmake --build build --config Release --target FootstepDetector_VST3 --parallel 4
         
     - name: Verify Build Output
       run: |
-        if (Test-Path "build\FootstepDetector_artefacts\Release\VST3\FootstepDetector.vst3") {
+        Write-Host "=== Build Verification ==="
+        $vst3Path = "build/FootstepDetector_artefacts/Release/VST3/FootstepDetector.vst3"
+        if (Test-Path $vst3Path) {
           Write-Host "✅ VST3 plugin built successfully"
-          dir build\FootstepDetector_artefacts\Release\VST3\
+          Write-Host "VST3 contents:"
+          Get-ChildItem $vst3Path -Recurse | Select-Object Name, Length
         } else {
           Write-Host "❌ VST3 plugin build failed"
+          Write-Host "Searching for any VST3 files:"
           Get-ChildItem build -Recurse -Name "*.vst3"
+          Write-Host "Build directory structure:"
+          Get-ChildItem build -Recurse | Select-Object FullName | Sort-Object FullName
           exit 1
         }
         
@@ -66,35 +141,18 @@ jobs:
         
     - name: Create Release Package
       run: |
+        Write-Host "=== Creating Release Package ==="
         mkdir FootstepDetector_Windows_Release
-        robocopy build\FootstepDetector_artefacts\Release\VST3\FootstepDetector.vst3 FootstepDetector_Windows_Release\FootstepDetector.vst3 /E
+        robocopy build/FootstepDetector_artefacts/Release/VST3/FootstepDetector.vst3 FootstepDetector_Windows_Release/FootstepDetector.vst3 /E
         if ($LASTEXITCODE -le 7) { $LASTEXITCODE = 0 }
-        echo "FootstepDetector VST3 Plugin - Installation Instructions" > FootstepDetector_Windows_Release\README.txt
-        echo "" >> FootstepDetector_Windows_Release\README.txt
-        echo "1. Copy the FootstepDetector.vst3 folder to:" >> FootstepDetector_Windows_Release\README.txt
-        echo "   C:\Program Files\Common Files\VST3\" >> FootstepDetector_Windows_Release\README.txt
-        echo "" >> FootstepDetector_Windows_Release\README.txt
-        echo "2. Restart your DAW (Digital Audio Workstation)" >> FootstepDetector_Windows_Release\README.txt
-        echo "" >> FootstepDetector_Windows_Release\README.txt
-        echo "3. The plugin will appear as:" >> FootstepDetector_Windows_Release\README.txt
-        echo "   FootstepTech -> FootstepDetector" >> FootstepDetector_Windows_Release\README.txt
-        echo "" >> FootstepDetector_Windows_Release\README.txt
-        echo "4. Plugin Controls:" >> FootstepDetector_Windows_Release\README.txt
-        echo "   - Sensitivity: 0-100%% (footstep detection threshold)" >> FootstepDetector_Windows_Release\README.txt
-        echo "   - Gain: 1-8x (amplification amount)" >> FootstepDetector_Windows_Release\README.txt
-        echo "   - Bypass: On/Off (enable/disable processing)" >> FootstepDetector_Windows_Release\README.txt
-        echo "" >> FootstepDetector_Windows_Release\README.txt
-        echo "5. Compatible with:" >> FootstepDetector_Windows_Release\README.txt
-        echo "   - FL Studio, Ableton Live, Reaper, Studio One" >> FootstepDetector_Windows_Release\README.txt
-        echo "   - Any DAW that supports VST3 plugins" >> FootstepDetector_Windows_Release\README.txt
-        echo "" >> FootstepDetector_Windows_Release\README.txt
-        echo "6. For gaming: Use with audio routing software to process game audio" >> FootstepDetector_Windows_Release\README.txt
-        echo "" >> FootstepDetector_Windows_Release\README.txt
-        echo "Technical Details:" >> FootstepDetector_Windows_Release\README.txt
-        echo "- Windows x64 compatible" >> FootstepDetector_Windows_Release\README.txt
-        echo "- Multi-band footstep enhancement" >> FootstepDetector_Windows_Release\README.txt
-        echo "- Professional audio processing" >> FootstepDetector_Windows_Release\README.txt
-        echo "- Zero latency" >> FootstepDetector_Windows_Release\README.txt
+        
+        echo "FootstepDetector VST3 Plugin - Installation Instructions" > FootstepDetector_Windows_Release/README.txt
+        echo "" >> FootstepDetector_Windows_Release/README.txt
+        echo "1. Copy FootstepDetector.vst3 folder to: C:\Program Files\Common Files\VST3\" >> FootstepDetector_Windows_Release/README.txt
+        echo "2. Restart your DAW" >> FootstepDetector_Windows_Release/README.txt
+        echo "3. Plugin appears as: FootstepTech -> FootstepDetector" >> FootstepDetector_Windows_Release/README.txt
+        echo "4. Controls: Sensitivity (0-100%), Gain (1-8x), Bypass" >> FootstepDetector_Windows_Release/README.txt
+        echo "5. Multi-band footstep enhancement with professional audio processing" >> FootstepDetector_Windows_Release/README.txt
         
     - name: Upload Release Package
       uses: actions/upload-artifact@v4
