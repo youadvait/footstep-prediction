@@ -12,10 +12,17 @@ jobs:
     runs-on: windows-latest
     
     steps:
-    - name: Checkout code
+    - name: Checkout code with submodules
       uses: actions/checkout@v4
       with:
-        submodules: recursive
+        submodules: 'recursive'
+        fetch-depth: 0
+        
+    - name: Verify JUCE structure
+      run: |
+        dir JUCE
+        dir JUCE\extras
+        dir JUCE\extras\Build
         
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
@@ -23,6 +30,11 @@ jobs:
     - name: Setup CMake
       uses: lukka/get-cmake@latest
       
+    - name: Initialize JUCE submodule manually (fallback)
+      run: |
+        git submodule update --init --recursive --force
+        dir JUCE\extras\Build\CMake
+        
     - name: Configure CMake (Windows x64)
       run: |
         cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
@@ -39,14 +51,14 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: FootstepDetector-Windows-x64-VST3
-        path: build/FootstepDetector_artefacts/Release/VST3/FootstepDetector.vst3
+        path: build/FootstepDetector_artefacts/Release/VST3/
         
     - name: Create Release Package
       run: |
         mkdir FootstepDetector_Windows_Release
-        copy build\FootstepDetector_artefacts\Release\VST3\FootstepDetector.vst3 FootstepDetector_Windows_Release\
+        xcopy build\FootstepDetector_artefacts\Release\VST3\FootstepDetector.vst3 FootstepDetector_Windows_Release\ /E /I
         echo Installation Instructions: > FootstepDetector_Windows_Release\README.txt
-        echo 1. Copy FootstepDetector.vst3 to C:\Program Files\Common Files\VST3\ >> FootstepDetector_Windows_Release\README.txt
+        echo 1. Copy FootstepDetector.vst3 folder to C:\Program Files\Common Files\VST3\ >> FootstepDetector_Windows_Release\README.txt
         echo 2. Restart your DAW >> FootstepDetector_Windows_Release\README.txt
         echo 3. Plugin appears as FootstepTech - FootstepDetector >> FootstepDetector_Windows_Release\README.txt
         
