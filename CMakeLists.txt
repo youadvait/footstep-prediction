@@ -22,13 +22,14 @@ juce_add_plugin(FootstepDetector
     COMPANY_NAME "FootstepTech"
     PLUGIN_MANUFACTURER_CODE FtTc
     PLUGIN_CODE FsDt
-    FORMATS Standalone
+    FORMATS VST3 Standalone  # FIXED: Include both VST3 and Standalone
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE
+    VST3_CATEGORIES "Fx"  # Add this for VST3
     BUNDLE_ID "com.footsteptech.footstepdetector"
     DESCRIPTION "Professional footstep detection and enhancement for gaming"
     PLUGIN_VERSION 1.0.0
