@@ -1,96 +1,70 @@
-cmake_minimum_required(VERSION 3.15)
-project(FootstepDetector VERSION 1.0.0)
+name: Build Windows Standalone
 
-set(CMAKE_CXX_STANDARD 17)
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
 
-# Release build by default for Windows
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
-endif()
-
-# Windows-specific optimizations
-if(WIN32)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT /O2")
-    set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT /O2")
-endif()
-
-add_subdirectory(JUCE)
-
-juce_add_plugin(FootstepDetector
-    PRODUCT_NAME "FootstepDetector"
-    COMPANY_NAME "FootstepTech"
-    PLUGIN_MANUFACTURER_CODE FtTc
-    PLUGIN_CODE FsDt
-    FORMATS VST3 Standalone  # FIXED: Include VST3 format
-    IS_SYNTH FALSE
-    NEEDS_MIDI_INPUT FALSE
-    NEEDS_MIDI_OUTPUT FALSE
-    IS_MIDI_EFFECT FALSE
-    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
-    COPY_PLUGIN_AFTER_BUILD FALSE
-    VST3_CATEGORIES "Fx"
-    BUNDLE_ID "com.footsteptech.footstepdetector"
-    DESCRIPTION "Professional footstep detection and enhancement for gaming"
-    PLUGIN_VERSION 1.0.0
-)
-
-target_sources(FootstepDetector PRIVATE
-    vst_plugin/Source/PluginProcessor.cpp
-    vst_plugin/Source/PluginEditor.cpp
-    vst_plugin/Source/FootstepClassifier.cpp
-)
-
-target_link_libraries(FootstepDetector PRIVATE
-    juce::juce_audio_basics
-    juce::juce_audio_devices
-    juce::juce_audio_utils
-    juce::juce_gui_basics
-    juce::juce_core
-    juce::juce_dsp
-)
-
-target_compile_definitions(FootstepDetector PRIVATE
-    # Core JUCE settings
-    JUCE_WEB_BROWSER=0
-    JUCE_USE_CURL=0
-    JUCE_DISPLAY_SPLASH_SCREEN=0
-    JUCE_REPORT_APP_USAGE=0
-    JUCE_MODAL_LOOPS_PERMITTED=1
+jobs:
+  build-standalone:
+    runs-on: windows-latest
     
-    # VST3 settings
-    JUCE_VST3_CAN_REPLACE_VST2=0
-    
-    # Performance and stability
-    JUCE_DISABLE_ASSERTIONS=1
-    JUCE_CHECK_MEMORY_LEAKS=0
-    JUCE_STRICT_REFCOUNTEDPOINTER=0
-    JUCE_OPENGL=0
-    
-    # MIDI disabling
-    JUCE_DISABLE_MIDI=1
-    JUCE_DISABLE_COREMIDI=1
-    JucePlugin_WantsMidiInput=0
-    JucePlugin_ProducesMidiOutput=0
-    
-    # Platform-specific Windows compatibility
-    $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x0601>
-    $<$<PLATFORM_ID:Windows>:WINVER=0x0601>
-    $<$<PLATFORM_ID:Windows>:JUCE_USE_WIN32_FILEBROWSER=1>
-    $<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN=1>
-    
-    # macOS-specific
-    $<$<PLATFORM_ID:Darwin>:JUCE_USE_NATIVE_ALERT_WINDOWS=1>
-)
-
-# Windows-specific linking for maximum compatibility
-if(WIN32)
-    target_link_options(FootstepDetector PRIVATE
-        /SUBSYSTEM:WINDOWS
-        /MACHINE:X64
-    )
-    
-    # Static runtime linking for standalone distribution
-    set_property(TARGET FootstepDetector PROPERTY
-        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif()
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Download JUCE 6.1.6
+      run: |
+        Write-Host "Downloading JUCE 6.1.6 for standalone build..."
+        Invoke-WebRequest -Uri "https://github.com/juce-framework/JUCE/archive/refs/tags/6.1.6.zip" -OutFile "juce.zip"
+        Expand-Archive juce.zip -DestinationPath . -Force
+        Move-Item JUCE-6.1.6 JUCE
+        
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+      
+    - name: Configure CMake for Standalone
+      run: |
+        cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+        
+    - name: Build Standalone Application
+      run: |
+        cmake --build build --config Release --target FootstepDetector_Standalone
+        
+    - name: Verify Standalone Build
+      run: |
+        $standalonePath = "build\FootstepDetector_artefacts\Release\Standalone\FootstepDetector.exe"
+        if (Test-Path $standalonePath) {
+          Write-Host "✅ Standalone .exe built successfully"
+          Get-Item $standalonePath | Select-Object Name, Length, LastWriteTime
+        } else {
+          Write-Host "❌ Standalone build failed"
+          Get-ChildItem build -Recurse -Name "*.exe"
+          exit 1
+        }
+        
+    - name: Upload Windows Standalone EXE
+      uses: actions/upload-artifact@v4
+      with:
+        name: FootstepDetector-Windows-Standalone-EXE
+        path: build/FootstepDetector_artefacts/Release/Standalone/FootstepDetector.exe
+        
+    - name: Create Standalone Package
+      run: |
+        mkdir FootstepDetector_Standalone_Windows
+        copy build\FootstepDetector_artefacts\Release\Standalone\FootstepDetector.exe FootstepDetector_Standalone_Windows\
+        echo "FootstepDetector Standalone Application - Windows x64" > FootstepDetector_Standalone_Windows\README.txt
+        echo "" >> FootstepDetector_Standalone_Windows\README.txt
+        echo "Usage:" >> FootstepDetector_Standalone_Windows\README.txt
+        echo "1. Double-click FootstepDetector.exe to run" >> FootstepDetector_Standalone_Windows\README.txt
+        echo "2. Select your audio input/output devices" >> FootstepDetector_Standalone_Windows\README.txt
+        echo "3. Adjust Sensitivity, Gain, and Bypass controls" >> FootstepDetector_Standalone_Windows\README.txt
+        echo "4. Real-time footstep detection and enhancement" >> FootstepDetector_Standalone_Windows\README.txt
+        echo "" >> FootstepDetector_Standalone_Windows\README.txt
+        echo "No installation required - runs directly!" >> FootstepDetector_Standalone_Windows\README.txt
+        
+    - name: Upload Complete Standalone Package
+      uses: actions/upload-artifact@v4
+      with:
+        name: FootstepDetector-Windows-Standalone-Complete
+        path: FootstepDetector_Standalone_Windows/
