@@ -106,18 +106,17 @@ void FootstepDetectorAudioProcessor::changeProgramName(int index, const juce::St
 
 void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // Simple preparation
     if (footstepClassifier != nullptr)
     {
         footstepClassifier->prepare(sampleRate, samplesPerBlock);
     }
     
-    // Setup EQ filters for footstep frequency enhancement
     juce::dsp::ProcessSpec spec;
     spec.sampleRate = sampleRate;
     spec.maximumBlockSize = samplesPerBlock;
     spec.numChannels = 2;
     
+    // FIXED: Reasonable filter gains (from search result [2])
     for (auto& filter : lowShelfFilter) {
         filter.prepare(spec);
         filter.reset();
@@ -125,7 +124,7 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             180.0f,  // Low footstep frequencies
             0.8f,    // Q factor
-            25.0f    // 18dB gain for obvious amplification
+            6.0f     // REDUCED: 6dB = 2x linear (was 25dB!)
         );
     }
     
@@ -136,7 +135,7 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             300.0f,  // Mid footstep frequencies
             0.7f,    // Q factor
-            22.0f    // 15dB gain
+            5.0f     // REDUCED: 5dB = 1.8x linear (was 22dB!)
         );
     }
     
@@ -147,10 +146,11 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             450.0f,  // High footstep frequencies
             0.6f,    // Q factor
-            18.0f    // 12dB gain
+            4.0f     // REDUCED: 4dB = 1.6x linear (was 18dB!)
         );
     }
 }
+
 
 juce::AudioProcessorEditor* FootstepDetectorAudioProcessor::createEditor()
 {
@@ -240,25 +240,22 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
     }
 }
 
-// ADD: Aggressive saturation for maximum footstep enhancement
 float FootstepDetectorAudioProcessor::applySaturation(float sample)
 {
-    // Soft saturation for harmonics and perceived loudness
-    float saturated = sample;
+    // FIXED: Gentle soft limiting instead of aggressive saturation
+    float limited = sample;
     
-    if (std::abs(sample) > 0.3f) {
+    // Soft knee compression above 0.7
+    if (std::abs(sample) > 0.7f) {
         float sign = (sample >= 0.0f) ? 1.0f : -1.0f;
         float abs_sample = std::abs(sample);
         
-        // Aggressive saturation curve
-        saturated = sign * (0.3f + (abs_sample - 0.3f) * 0.4f + 
-                           std::sin((abs_sample - 0.3f) * 3.14159f) * 0.1f);
+        // Gentle soft limiting curve
+        limited = sign * (0.7f + (abs_sample - 0.7f) * 0.3f);
     }
     
-    // Additional harmonic enhancement
-    saturated += std::sin(sample * 6.28318f) * 0.05f; // 2nd harmonic
-    
-    return saturated * 1.5f; // Extra boost
+    // REMOVED: Extra 1.5x boost that was causing clipping
+    return juce::jlimit(-0.95f, 0.95f, limited); // Hard limit at ±0.95
 }
 
 
@@ -282,13 +279,13 @@ float FootstepDetectorAudioProcessor::applyMultiBandEQ(float sample, int channel
         return sample;
     }
     
-    // Apply multi-band processing for full footstep spectrum enhancement
-    float lowBand = lowShelfFilter[channel].processSample(sample);    // 180Hz boost
-    float midBand = midShelfFilter[channel].processSample(sample);    // 300Hz boost
-    float highBand = highShelfFilter[channel].processSample(sample);  // 450Hz boost
+    // Apply multi-band processing with NORMALIZED weights
+    float lowBand = lowShelfFilter[channel].processSample(sample);
+    float midBand = midShelfFilter[channel].processSample(sample);
+    float highBand = highShelfFilter[channel].processSample(sample);
     
-    // Combine bands with weighted mixing for natural sound
-    float enhanced = (lowBand * 0.6f) + (midBand * 0.5f) + (highBand * 0.4f);
+    // FIXED: Normalized mixing weights (total = 1.0, not 1.5)
+    float enhanced = (lowBand * 0.4f) + (midBand * 0.35f) + (highBand * 0.25f);
     
     return enhanced;
 }
