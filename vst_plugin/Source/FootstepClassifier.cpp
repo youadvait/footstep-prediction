@@ -45,7 +45,7 @@ bool FootstepClassifier::detectFootstep(float inputSample, float sensitivity)
     float confidence = calculateConfidence(energy, frequency);
     
     // Apply sensitivity threshold
-    float threshold = 0.3f + (1.0f - sensitivity) * 0.4f; // Range: 0.3 to 0.7
+    float threshold = 0.6f + (1.0f - sensitivity) * 0.3f;
     
     // Cooldown to prevent rapid triggering
     if (cooldownCounter > 0)
