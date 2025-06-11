@@ -61,17 +61,18 @@ private:
     std::vector<juce::dsp::IIR::Filter<float>> midShelfFilter;
     std::vector<juce::dsp::IIR::Filter<float>> highShelfFilter;
     
-    // FIXED: Thread safety for EqualizerAPO (proper initialization)
+    // ADD: Smooth envelope for crackling-free amplification
     mutable juce::CriticalSection processingLock;
-    
-    // FIXED: Use regular bool instead of atomic to avoid copy constructor issues
     bool isProcessing = false;
+    
+    // NEW: Smooth amplification envelope
+    float currentAmplification = 1.0f;
+    float targetAmplification = 1.0f;
+    float envelopeAttack = 0.001f;   // Very fast attack
+    float envelopeRelease = 0.02f;   // Smooth release
     
     float applyFootstepEQ(float sample, int channel);
     float applyMultiBandEQ(float sample, int channel);
-    float applySaturation(float sample);
-    
-    // EqualizerAPO compatibility methods
     void getEditorSize(int& width, int& height);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(FootstepDetectorAudioProcessor)

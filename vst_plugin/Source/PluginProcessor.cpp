@@ -176,8 +176,11 @@ bool FootstepDetectorAudioProcessor::isBusesLayoutSupported(const BusesLayout& l
 
 void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    (void)midiMessages;
-
+    juce::ScopedLock lock(processingLock);
+    
+    if (isProcessing) return;
+    isProcessing = true;
+    
     juce::ScopedNoDenormals noDenormals;
     
     auto totalNumInputChannels = getTotalNumInputChannels();
@@ -186,22 +189,21 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear(i, 0, buffer.getNumSamples());
 
-    // FIXED: Use atomic parameter values from AudioProcessorValueTreeState
     float sensitivity = juce::jlimit(0.0f, 1.0f, sensitivityParam->load());
     float gain = juce::jlimit(1.0f, 8.0f, gainParam->load());
     bool bypass = bypassParam->load() > 0.5f;
     
-    if (bypass)
-    {
-        return; // Pass through unchanged
+    if (bypass) {
+        isProcessing = false;
+        return;
     }
 
-    if (footstepClassifier == nullptr)
-    {
-        return; // Pass through if classifier not available
+    if (footstepClassifier == nullptr) {
+        isProcessing = false;
+        return;
     }
 
-    // Simple approach: Process sample by sample with detection + EQ
+    // Process sample by sample with SMOOTH amplification
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
@@ -216,48 +218,64 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
                 continue;
             }
             
-            // Simple footstep detection (using proven working logic)
+            // Detection with much higher threshold
             bool isFootstep = footstepClassifier->detectFootstep(inputSample, sensitivity);
             
+            // SMOOTH envelope - no instant on/off
             if (isFootstep)
             {
-                // ENHANCED: Apply multi-band EQ + gain + saturation for massive enhancement
-                float multiBandSample = applyMultiBandEQ(inputSample, channel);
-                float amplified = multiBandSample * gain;
-                
-                // ADD: Aggressive saturation for maximum audible effect
-                // amplified = applySaturation(amplified);
-
-                channelData[sample] = juce::jlimit(-0.9f, 0.9f, amplified);
-                
+                targetAmplification = gain; // Target the user's gain setting
             }
-            
             else
             {
-                // ALWAYS apply subtle EQ for footstep frequency enhancement
-                channelData[sample] = inputSample; // Pass through unchanged
+                targetAmplification = 1.0f; // Target unity gain
+            }
+            
+            // SMOOTH interpolation to target (prevents crackling)
+            if (currentAmplification < targetAmplification)
+            {
+                // Attack phase - fast but not instant
+                currentAmplification += (targetAmplification - currentAmplification) * envelopeAttack;
+            }
+            else
+            {
+                // Release phase - smooth decay
+                currentAmplification += (targetAmplification - currentAmplification) * envelopeRelease;
+            }
+            
+            // Apply smooth amplification with EQ
+            if (currentAmplification > 1.01f) // Only apply EQ when amplifying
+            {
+                float multiBandSample = applyMultiBandEQ(inputSample, channel);
+                channelData[sample] = juce::jlimit(-0.85f, 0.85f, multiBandSample * currentAmplification);
+            }
+            else
+            {
+                channelData[sample] = inputSample; // Pass through
             }
         }
     }
+    
+    isProcessing = false;
 }
 
-float FootstepDetectorAudioProcessor::applySaturation(float sample)
-{
-    // FIXED: Gentle soft limiting instead of aggressive saturation
-    float limited = sample;
+// float FootstepDetectorAudioProcessor::applySaturation(float sample)
+// {
+//     // FIXED: Gentle soft limiting instead of aggressive saturation
+//     float limited = sample;
     
-    // Soft knee compression above 0.7
-    if (std::abs(sample) > 0.7f) {
-        float sign = (sample >= 0.0f) ? 1.0f : -1.0f;
-        float abs_sample = std::abs(sample);
+//     // Soft knee compression above 0.7
+//     if (std::abs(sample) > 0.7f) {
+//         float sign = (sample >= 0.0f) ? 1.0f : -1.0f;
+//         float abs_sample = std::abs(sample);
         
-        // Gentle soft limiting curve
-        limited = sign * (0.7f + (abs_sample - 0.7f) * 0.3f);
-    }
+//         // Gentle soft limiting curve
+//         limited = sign * (0.7f + (abs_sample - 0.7f) * 0.3f);
+//     }
     
-    // REMOVED: Extra 1.5x boost that was causing clipping
-    return juce::jlimit(-0.95f, 0.95f, limited); // Hard limit at ±0.95
-}
+//     // REMOVED: Extra 1.5x boost that was causing clipping
+//     return juce::jlimit(-0.95f, 0.95f, limited); // Hard limit at ±0.95
+// }
 
 
 // Simple EQ-based footstep enhancement

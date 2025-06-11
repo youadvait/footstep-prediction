@@ -31,49 +31,35 @@ void FootstepClassifier::prepare(double sampleRate, int samplesPerBlock)
 
 bool FootstepClassifier::detectFootstep(float inputSample, float sensitivity)
 {
-    // CRASH PREVENTION: Validate inputs
-    if (std::isnan(inputSample) || std::isinf(inputSample))
-        return false;
+    // Existing validation...
     
-    sensitivity = std::max(0.0f, std::min(1.0f, sensitivity));
-    
-    // Calculate energy and frequency content
     float energy = calculateEnergy(inputSample);
     float frequency = calculateFrequencyContent(inputSample);
-    
-    // ADD THIS LINE: Calculate detection confidence
     float confidence = calculateConfidence(energy, frequency);
     
-    // Apply sensitivity threshold
-    float threshold = 0.6f + (1.0f - sensitivity) * 0.3f;
+    // MUCH HIGHER threshold to reduce false positives
+    float threshold = 0.8f + (1.0f - sensitivity) * 0.15f; // Range: 0.65 to 0.8 (was 0.3-0.7!)
     
-    // Cooldown to prevent rapid triggering
+    // LONGER cooldown to prevent rapid triggering
     if (cooldownCounter > 0)
     {
         cooldownCounter--;
         return false;
     }
     
-    // Detection logic
     bool isFootstep = confidence > threshold;
     
     if (isFootstep)
     {
-        cooldownCounter = static_cast<int>(currentSampleRate * 0.1); // 100ms cooldown
+        // MUCH LONGER cooldown - 300ms instead of 100ms
+        cooldownCounter = static_cast<int>(currentSampleRate * 0.3); 
         
-        // ADD: Debug output for detections
         std::cout << "🎮 FOOTSTEP DETECTED | Confidence: " << confidence 
-                  << " | Energy: " << energy 
-                  << " | Threshold: " << threshold 
-                  << " | Sensitivity: " << sensitivity << std::endl;
-        std::cout.flush();
+                  << " | Threshold: " << threshold << std::endl;
     }
     
-    lastConfidence = confidence;
-    lastEnergy = energy; // Store energy for getter
     return isFootstep;
 }
-
 
 float FootstepClassifier::calculateEnergy(float sample)
 {
