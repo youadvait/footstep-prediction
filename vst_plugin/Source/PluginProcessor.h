@@ -68,8 +68,8 @@ private:
     // NEW: Smooth amplification envelope
     float currentAmplification = 1.0f;
     float targetAmplification = 1.0f;
-    float envelopeAttack = 0.001f;   // Very fast attack
-    float envelopeRelease = 0.02f;   // Smooth release
+    float envelopeAttack = 0.01f;   // Very fast attack
+    float envelopeRelease = 0.05f;   // Smooth release
     
     float applyFootstepEQ(float sample, int channel);
     float applyMultiBandEQ(float sample, int channel);

@@ -123,7 +123,7 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             180.0f,
             0.8f,
-            2.0f     // ULTRA-CONSERVATIVE: 2dB = 1.26x (was 6dB!)
+            4.0f     // ULTRA-CONSERVATIVE: 2dB = 1.26x (was 6dB!)
         );
     }
 
@@ -134,7 +134,7 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             300.0f,
             0.7f,
-            1.5f     // ULTRA-CONSERVATIVE: 1.5dB = 1.19x (was 5dB!)
+            3.5f     // ULTRA-CONSERVATIVE: 1.5dB = 1.19x (was 5dB!)
         );
     }
 
@@ -145,7 +145,7 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             450.0f,
             0.6f,
-            1.0f     // ULTRA-CONSERVATIVE: 1dB = 1.12x (was 4dB!)
+            3.0f     // ULTRA-CONSERVATIVE: 1dB = 1.12x (was 4dB!)
         );
     }
 
@@ -243,15 +243,15 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
                 currentAmplification += (targetAmplification - currentAmplification) * envelopeRelease;
             }
             
-            // Apply smooth amplification with EQ
-            if (currentAmplification > 1.01f) // Only apply EQ when amplifying
+            if (currentAmplification > 1.01f)
             {
                 float multiBandSample = applyMultiBandEQ(inputSample, channel);
-                channelData[sample] = juce::jlimit(-0.85f, 0.85f, multiBandSample * currentAmplification);
+                // HIGHER limiting threshold for more audible output
+                channelData[sample] = juce::jlimit(-0.95f, 0.95f, multiBandSample * currentAmplification);
             }
             else
             {
-                channelData[sample] = inputSample; // Pass through
+                channelData[sample] = inputSample;
             }
         }
     }
@@ -297,16 +297,13 @@ float FootstepDetectorAudioProcessor::applyMultiBandEQ(float sample, int channel
         return sample;
     }
     
-    // Apply MINIMAL multi-band processing
     float lowBand = lowShelfFilter[channel].processSample(sample);
     float midBand = midShelfFilter[channel].processSample(sample);
     float highBand = highShelfFilter[channel].processSample(sample);
     
-    // MINIMAL mixing - barely above unity gain
-    float enhanced = (lowBand * 0.4f) + (midBand * 0.35f) + (highBand * 0.25f);
+    float enhanced = (lowBand * 0.45f) + (midBand * 0.35f) + (highBand * 0.2f);
     
-    // SAFETY: Ensure no gain above 1.2x total
-    return juce::jlimit(-0.8f, 0.8f, enhanced * 1.2f);
+    return enhanced * 1.4f; // Was 1.2f - too conservative!
 }
 
 bool FootstepDetectorAudioProcessor::hasEditor() const

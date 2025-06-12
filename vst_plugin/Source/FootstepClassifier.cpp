@@ -38,7 +38,7 @@ bool FootstepClassifier::detectFootstep(float inputSample, float sensitivity)
     float confidence = calculateConfidence(energy, frequency);
     
     // MUCH HIGHER threshold to reduce false positives
-    float threshold = 0.8f + (1.0f - sensitivity) * 0.15f; // Range: 0.65 to 0.8 (was 0.3-0.7!)
+    float threshold = 0.7f + (1.0f - sensitivity) * 0.2f;
     
     // LONGER cooldown to prevent rapid triggering
     if (cooldownCounter > 0)
@@ -52,12 +52,12 @@ bool FootstepClassifier::detectFootstep(float inputSample, float sensitivity)
     if (isFootstep)
     {
         // MUCH LONGER cooldown - 300ms instead of 100ms
-        cooldownCounter = static_cast<int>(currentSampleRate * 0.3); 
+        cooldownCounter = static_cast<int>(currentSampleRate * 0.15);
         
         std::cout << "🎮 FOOTSTEP DETECTED | Confidence: " << confidence 
                   << " | Threshold: " << threshold << std::endl;
     }
-    
+
     return isFootstep;
 }
 
