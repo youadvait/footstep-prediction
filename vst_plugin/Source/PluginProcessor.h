@@ -68,8 +68,12 @@ private:
     // NEW: Smooth amplification envelope
     float currentAmplification = 1.0f;
     float targetAmplification = 1.0f;
-    float envelopeAttack = 0.01f;   // Very fast attack
-    float envelopeRelease = 0.05f;   // Smooth release
+    float envelopeAttack = 0.0045f;   // Very fast attack
+    float envelopeRelease = 0.0003f;   // Smooth release
+
+    int holdSamples = 0;             // Remaining hold time in samples
+    int footstepHoldDuration = 0;    // Total hold duration (200ms)
+    bool inHoldPhase = false;        // Currently holding amplification
     
     float applyFootstepEQ(float sample, int channel);
     float applyMultiBandEQ(float sample, int channel);

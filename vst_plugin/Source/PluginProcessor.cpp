@@ -115,6 +115,8 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
     spec.sampleRate = sampleRate;
     spec.maximumBlockSize = samplesPerBlock;
     spec.numChannels = 2;
+
+    footstepHoldDuration = static_cast<int>(sampleRate * 0.2);
     
     for (auto& filter : lowShelfFilter) {
         filter.prepare(spec);
@@ -203,7 +205,6 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
         return;
     }
 
-    // Process sample by sample with SMOOTH amplification
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer(channel);
@@ -218,35 +219,51 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
                 continue;
             }
             
-            // Detection with much higher threshold
+            // Detection with moderate threshold
             bool isFootstep = footstepClassifier->detectFootstep(inputSample, sensitivity);
             
-            // SMOOTH envelope - no instant on/off
+            // NEW: Attack-Hold-Release envelope system
             if (isFootstep)
             {
-                targetAmplification = gain; // Target the user's gain setting
+                // NEW FOOTSTEP: Start hold phase for full 200ms duration
+                targetAmplification = gain;
+                holdSamples = footstepHoldDuration; // 200ms hold
+                inHoldPhase = true;
+            }
+            else if (inHoldPhase && holdSamples > 0)
+            {
+                // HOLD PHASE: Maintain amplification for full footstep duration
+                targetAmplification = gain;
+                holdSamples--; // Count down hold time
+            }
+            else if (inHoldPhase && holdSamples <= 0)
+            {
+                // END HOLD: Start release phase
+                targetAmplification = 1.0f;
+                inHoldPhase = false;
             }
             else
             {
-                targetAmplification = 1.0f; // Target unity gain
+                // NO FOOTSTEP: Target unity gain
+                targetAmplification = 1.0f;
             }
             
-            // SMOOTH interpolation to target (prevents crackling)
+            // SMOOTH envelope interpolation
             if (currentAmplification < targetAmplification)
             {
-                // Attack phase - fast but not instant
+                // Attack phase
                 currentAmplification += (targetAmplification - currentAmplification) * envelopeAttack;
             }
-            else
+            else if (currentAmplification > targetAmplification)
             {
-                // Release phase - smooth decay
+                // Release phase  
                 currentAmplification += (targetAmplification - currentAmplification) * envelopeRelease;
             }
             
+            // Apply amplification with EQ
             if (currentAmplification > 1.01f)
             {
                 float multiBandSample = applyMultiBandEQ(inputSample, channel);
-                // HIGHER limiting threshold for more audible output
                 channelData[sample] = juce::jlimit(-0.95f, 0.95f, multiBandSample * currentAmplification);
             }
             else
@@ -258,6 +275,7 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
     
     isProcessing = false;
 }
+
 
 // float FootstepDetectorAudioProcessor::applySaturation(float sample)
 // {
