@@ -48,49 +48,49 @@ bool FootstepClassifier::detectFootstep(float inputSample, float sensitivity)
 {
     if (currentSampleRate <= 0) return false;
     
-    // Cooldown check
+    // Cooldown check - MUCH SHORTER
     if (cooldownCounter > 0)
     {
         cooldownCounter--;
         return false;
     }
     
-    // ENHANCED: Multi-stage analysis with gunshot rejection
+    // SIMPLIFIED: Basic analysis only
     float energy = calculateEnergy(inputSample);
-    float lowFreqContent = calculateFrequencyContent(inputSample);  // Rename existing method
-    float highFreqContent = calculateGunshotFrequencyContent(inputSample);  // NEW
-    float transientDuration = analyzeTransientDuration(energy);  // NEW
+    float frequency = calculateFrequencyContent(inputSample);
     
-    // NEW: Gunshot rejection logic
-    bool isLikelyGunshot = detectGunshot(energy, highFreqContent, transientDuration);
+    // BASIC gunshot rejection - only for extreme cases
+    float highFreqContent = calculateGunshotFrequencyContent(inputSample);
+    bool isObviousGunshot = (energy > 0.3f && highFreqContent > 0.5f); // Very high thresholds
     
-    if (isLikelyGunshot)
+    if (isObviousGunshot)
     {
-        // GUNSHOT DETECTED: Set longer cooldown and reject
-        cooldownCounter = static_cast<int>(currentSampleRate * 0.5); // 500ms cooldown for gunshots
-        std::cout << "🚫 GUNSHOT REJECTED | Energy: " << energy 
-                  << " | HighFreq: " << highFreqContent 
-                  << " | Duration: " << transientDuration << std::endl;
+        // SHORTER gunshot cooldown
+        cooldownCounter = static_cast<int>(currentSampleRate * 0.2); // 200ms (was 500ms)
+        std::cout << "🚫 OBVIOUS GUNSHOT REJECTED | Energy: " << energy << std::endl;
         return false;
     }
     
-    // FOOTSTEP DETECTION: Only if not a gunshot
-    float footstepConfidence = calculateFootstepConfidence(energy, lowFreqContent, transientDuration);
+    // MUCH MORE PERMISSIVE footstep detection
+    float confidence = calculateFootstepConfidence(energy, frequency, 0.0f); // Ignore duration
     
-    // MORE SELECTIVE threshold
-    float threshold = 0.75f + (1.0f - sensitivity) * 0.2f; // Range: 0.55 to 0.75
+    // MUCH LOWER threshold - more sensitive
+    float threshold = 0.3f + (1.0f - sensitivity) * 0.4f; // Range: 0.3 to 0.7 (was 0.55-0.75)
     
-    bool isFootstep = footstepConfidence > threshold;
+    bool isFootstep = confidence > threshold;
     
     if (isFootstep)
     {
-        cooldownCounter = static_cast<int>(currentSampleRate * 0.15); // 150ms cooldown
-        std::cout << "👟 FOOTSTEP DETECTED | Confidence: " << footstepConfidence 
-                  << " | Threshold: " << threshold << std::endl;
+        // MUCH SHORTER footstep cooldown
+        cooldownCounter = static_cast<int>(currentSampleRate * 0.05); // 50ms (was 150ms)
+        std::cout << "👟 FOOTSTEP DETECTED | Confidence: " << confidence 
+                  << " | Threshold: " << threshold 
+                  << " | Energy: " << energy << std::endl;
     }
     
     return isFootstep;
 }
+
 
 float FootstepClassifier::calculateEnergy(float sample)
 {
@@ -207,30 +207,31 @@ float FootstepClassifier::analyzeTransientDuration(float energy)
 
 bool FootstepClassifier::detectGunshot(float energy, float highFreqContent, float transientDuration)
 {
-    // GUNSHOT CHARACTERISTICS:
-    bool highEnergy = energy > 0.15f;           // Much higher than footsteps
-    bool highFrequency = highFreqContent > 0.1f; // Significant high-freq content
-    bool sharpTransient = transientDuration > 5.0f; // High variance = sharp burst
+    // MUCH LESS AGGRESSIVE: Only reject extremely obvious gunshots
     
-    // ALL conditions must be met for gunshot
-    return highEnergy && highFrequency && sharpTransient;
+    bool extremeEnergy = energy > 0.5f;        // Very high threshold (was 0.15f)
+    bool extremeHighFreq = highFreqContent > 0.8f; // Very high threshold (was 0.1f)
+    
+    // ONLY reject if BOTH conditions are extreme
+    return extremeEnergy && extremeHighFreq;
 }
 
 float FootstepClassifier::calculateFootstepConfidence(float energy, float lowFreqContent, float transientDuration)
 {
-    // FOOTSTEP-SPECIFIC confidence calculation
+    // SIMPLIFIED: Focus on energy and frequency only
+    
+    // MUCH MORE PERMISSIVE energy range
     float energyScore = 0.0f;
-    if (energy >= 0.025f && energy <= 0.100f) {
-        energyScore = 1.0f - std::abs(0.0625f - energy) / 0.0375f;
+    if (energy >= 0.01f && energy <= 0.4f) { // Wider range (was 0.025-0.100)
+        // Give high score for any reasonable energy level
+        energyScore = std::min(1.0f, energy * 5.0f); // Linear scaling
     }
     
-    float freqScore = std::min(1.0f, lowFreqContent * 10.0f);
+    // PERMISSIVE frequency score
+    float freqScore = std::min(1.0f, lowFreqContent * 8.0f); // More sensitive
     
-    float durationScore = 0.0f;
-    if (transientDuration < 3.0f) { // Footsteps have low variance (smooth)
-        durationScore = 1.0f - (transientDuration / 3.0f);
-    }
+    // IGNORE duration analysis for now - it was too restrictive
     
-    // Weighted combination favoring energy and frequency
-    return (energyScore * 0.5f) + (freqScore * 0.3f) + (durationScore * 0.2f);
+    // SIMPLE combination - heavily favor energy
+    return (energyScore * 0.8f) + (freqScore * 0.2f);
 }
