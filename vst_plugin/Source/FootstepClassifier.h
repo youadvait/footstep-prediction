@@ -53,4 +53,5 @@ private:
     float analyzeTransientDuration(float energy);
     bool detectGunshot(float energy, float highFreqContent, float transientDuration);
     float calculateFootstepConfidence(float energy, float lowFreqContent, float transientDuration);
+    float calculateRestrictiveFootstepConfidence(float energy, float frequency);
 };

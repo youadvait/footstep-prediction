@@ -48,42 +48,29 @@ bool FootstepClassifier::detectFootstep(float inputSample, float sensitivity)
 {
     if (currentSampleRate <= 0) return false;
     
-    // Cooldown check - MUCH SHORTER
+    // Cooldown check
     if (cooldownCounter > 0)
     {
         cooldownCounter--;
         return false;
     }
     
-    // SIMPLIFIED: Basic analysis only
+    // Calculate basic metrics
     float energy = calculateEnergy(inputSample);
     float frequency = calculateFrequencyContent(inputSample);
     
-    // BASIC gunshot rejection - only for extreme cases
-    float highFreqContent = calculateGunshotFrequencyContent(inputSample);
-    bool isObviousGunshot = (energy > 0.3f && highFreqContent > 0.5f); // Very high thresholds
+    // MUCH MORE RESTRICTIVE: Only detect clear footstep signatures
+    float confidence = calculateRestrictiveFootstepConfidence(energy, frequency);
     
-    if (isObviousGunshot)
-    {
-        // SHORTER gunshot cooldown
-        cooldownCounter = static_cast<int>(currentSampleRate * 0.2); // 200ms (was 500ms)
-        std::cout << "🚫 OBVIOUS GUNSHOT REJECTED | Energy: " << energy << std::endl;
-        return false;
-    }
-    
-    // MUCH MORE PERMISSIVE footstep detection
-    float confidence = calculateFootstepConfidence(energy, frequency, 0.0f); // Ignore duration
-    
-    // MUCH LOWER threshold - more sensitive
-    float threshold = 0.3f + (1.0f - sensitivity) * 0.4f; // Range: 0.3 to 0.7 (was 0.55-0.75)
+    // MUCH HIGHER threshold - be very selective
+    float threshold = 0.8f + (1.0f - sensitivity) * 0.15f; // Range: 0.65 to 0.8 (very high!)
     
     bool isFootstep = confidence > threshold;
     
     if (isFootstep)
     {
-        // MUCH SHORTER footstep cooldown
-        cooldownCounter = static_cast<int>(currentSampleRate * 0.05); // 50ms (was 150ms)
-        std::cout << "👟 FOOTSTEP DETECTED | Confidence: " << confidence 
+        cooldownCounter = static_cast<int>(currentSampleRate * 0.1); // 100ms cooldown
+        std::cout << "👟 SELECTIVE FOOTSTEP | Confidence: " << confidence 
                   << " | Threshold: " << threshold 
                   << " | Energy: " << energy << std::endl;
     }
@@ -234,4 +221,28 @@ float FootstepClassifier::calculateFootstepConfidence(float energy, float lowFre
     
     // SIMPLE combination - heavily favor energy
     return (energyScore * 0.8f) + (freqScore * 0.2f);
+}
+
+float FootstepClassifier::calculateRestrictiveFootstepConfidence(float energy, float frequency)
+{
+    // VERY RESTRICTIVE: Only footstep-like signals get high confidence
+    
+    // Energy must be in NARROW footstep range
+    float energyScore = 0.0f;
+    if (energy >= 0.03f && energy <= 0.08f) { // NARROW range for typical footsteps
+        // Peak confidence at 0.055 (typical footstep energy)
+        energyScore = 1.0f - std::abs(0.055f - energy) / 0.025f;
+        energyScore = std::max(0.0f, energyScore);
+    }
+    
+    // Frequency must show footstep characteristics
+    float freqScore = 0.0f;
+    if (frequency >= 0.02f && frequency <= 0.15f) { // Footstep frequency range
+        freqScore = std::min(1.0f, frequency * 6.0f);
+    }
+    
+    // BOTH energy AND frequency must be good for high confidence
+    float confidence = energyScore * freqScore; // Multiplicative - both required
+    
+    return confidence;
 }
