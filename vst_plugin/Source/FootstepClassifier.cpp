@@ -38,10 +38,9 @@ bool FootstepClassifier::detectFootstep(float inputSample, float sensitivity)
     float frequency = calculateFrequencyContent(inputSample);
     float confidence = calculateConfidence(energy, frequency);
     
-    // MUCH LOWER, more sensitive threshold
-    float threshold = 0.3f + (1.0f - sensitivity) * 0.4f; // Range: 0.3 to 0.7 (vs 0.7-0.9)
+    // BALANCED threshold - following analysis recommendations (0.5-0.8)
+    float threshold = 0.5f + (1.0f - sensitivity) * 0.3f; // Range: 0.5 to 0.8
     
-    // SHORTER cooldown for responsiveness
     if (cooldownCounter > 0)
     {
         cooldownCounter--;
@@ -52,8 +51,8 @@ bool FootstepClassifier::detectFootstep(float inputSample, float sensitivity)
     
     if (isFootstep)
     {
-        // SHORTER cooldown - 80ms for more responsiveness
-        cooldownCounter = static_cast<int>(currentSampleRate * 0.08);
+        // MODERATE cooldown - per analysis (80-150ms range)
+        cooldownCounter = static_cast<int>(currentSampleRate * 0.1); // 100ms
         
         std::cout << "👟 FOOTSTEP | Confidence: " << confidence 
                   << " | Threshold: " << threshold 
@@ -114,24 +113,26 @@ float FootstepClassifier::calculateFrequencyContent(float sample)
 
 float FootstepClassifier::calculateConfidence(float energy, float frequency)
 {
-    // WIDER energy range to catch more footsteps
+    // PROVEN footstep energy range from working version
     float energyScore = 0.0f;
-    if (energy >= 0.01f && energy <= 0.2f) // MUCH WIDER: was 0.025-0.100
+    if (energy >= 0.02f && energy <= 0.15f) // Moderate range - not too narrow, not too wide
     {
-        // More permissive scoring - linear instead of peak-focused
-        if (energy <= 0.05f) {
-            energyScore = energy / 0.05f; // Linear rise to 1.0 at 0.05
+        // Optimal range for most footsteps
+        if (energy >= 0.04f && energy <= 0.08f) {
+            energyScore = 1.0f; // Perfect footstep energy
+        } else if (energy < 0.04f) {
+            energyScore = (energy - 0.02f) / 0.02f; // Ramp up from 0.02
         } else {
-            energyScore = 1.0f - ((energy - 0.05f) / 0.15f) * 0.3f; // Gentle falloff
+            energyScore = 1.0f - ((energy - 0.08f) / 0.07f) * 0.5f; // Gentle falloff
         }
         energyScore = std::max(0.0f, energyScore);
     }
     
-    // MORE GENEROUS frequency scoring
-    float frequencyScore = std::min(1.0f, frequency * 15.0f); // was * 10.0f
+    // Frequency content for footstep discrimination
+    float frequencyScore = std::min(1.0f, frequency * 12.0f);
     
-    // LOWER weighting requirements - easier to get high confidence
-    float confidence = (energyScore * 0.6f) + (frequencyScore * 0.4f);
+    // Balanced combination
+    float confidence = (energyScore * 0.65f) + (frequencyScore * 0.35f);
     
     return std::max(0.0f, std::min(1.0f, confidence));
 }
