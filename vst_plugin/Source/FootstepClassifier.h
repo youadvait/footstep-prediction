@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vector>
-#include <juce_dsp/juce_dsp.h>
 #include <cmath>
 
 class FootstepClassifier
@@ -43,15 +42,5 @@ private:
     float calculateFrequencyContent(float sample);
     float calculateConfidence(float energy, float frequency);
 
-
-    juce::dsp::IIR::Filter<float> highFreqFilter;
-    std::vector<float> transientBuffer;
-    int transientBufferPos = 0;
-    
-    // NEW: Add these method declarations
-    float calculateGunshotFrequencyContent(float sample);
-    float analyzeTransientDuration(float energy);
-    bool detectGunshot(float energy, float highFreqContent, float transientDuration);
-    float calculateFootstepConfidence(float energy, float lowFreqContent, float transientDuration);
-    float calculateRestrictiveFootstepConfidence(float energy, float frequency);
+    float backgroundNoise = 0.015f;
 };
