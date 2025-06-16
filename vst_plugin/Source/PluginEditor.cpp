@@ -4,16 +4,14 @@
 FootstepDetectorAudioProcessorEditor::FootstepDetectorAudioProcessorEditor(FootstepDetectorAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    // Sensitivity slider
+    // Sensitivity slider (unchanged)
     sensitivitySlider.setRange(0.0, 1.0, 0.01);
-    // FIXED: Load value from atomic parameter pointer
     sensitivitySlider.setValue(audioProcessor.sensitivityParam->load());
     sensitivitySlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
     sensitivitySlider.onValueChange = [this]()
     {
         float newValue = static_cast<float>(sensitivitySlider.getValue());
         newValue = juce::jlimit(0.0f, 1.0f, newValue);
-        // FIXED: Store value to atomic parameter pointer
         audioProcessor.sensitivityParam->store(newValue);
     };
     addAndMakeVisible(sensitivitySlider);
@@ -22,36 +20,48 @@ FootstepDetectorAudioProcessorEditor::FootstepDetectorAudioProcessorEditor(Foots
     sensitivityLabel.attachToComponent(&sensitivitySlider, true);
     addAndMakeVisible(sensitivityLabel);
     
-    // Gain slider
-    gainSlider.setRange(1.0, 8.0, 0.1);
-    // FIXED: Load value from atomic parameter pointer
-    gainSlider.setValue(audioProcessor.gainParam->load());
-    gainSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
-    gainSlider.onValueChange = [this]()
+    // UPDATED: Reduction slider (was gain slider)
+    reductionSlider.setRange(0.1, 0.8, 0.01);
+    reductionSlider.setValue(audioProcessor.reductionParam->load());
+    reductionSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    reductionSlider.onValueChange = [this]()
     {
-        float newValue = static_cast<float>(gainSlider.getValue());
-        newValue = juce::jlimit(1.0f, 8.0f, newValue);
-        // FIXED: Store value to atomic parameter pointer
-        audioProcessor.gainParam->store(newValue);
+        float newValue = static_cast<float>(reductionSlider.getValue());
+        newValue = juce::jlimit(0.1f, 0.8f, newValue);
+        audioProcessor.reductionParam->store(newValue);
     };
-    addAndMakeVisible(gainSlider);
+    addAndMakeVisible(reductionSlider);
     
-    gainLabel.setText("Gain", juce::dontSendNotification);
-    gainLabel.attachToComponent(&gainSlider, true);
-    addAndMakeVisible(gainLabel);
+    reductionLabel.setText("Reduction", juce::dontSendNotification);
+    reductionLabel.attachToComponent(&reductionSlider, true);
+    addAndMakeVisible(reductionLabel);
     
-    // Bypass button
+    // NEW: Enhancement slider
+    enhancementSlider.setRange(1.0, 2.0, 0.1);
+    enhancementSlider.setValue(audioProcessor.enhancementParam->load());
+    enhancementSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+    enhancementSlider.onValueChange = [this]()
+    {
+        float newValue = static_cast<float>(enhancementSlider.getValue());
+        newValue = juce::jlimit(1.0f, 2.0f, newValue);
+        audioProcessor.enhancementParam->store(newValue);
+    };
+    addAndMakeVisible(enhancementSlider);
+    
+    enhancementLabel.setText("Enhancement", juce::dontSendNotification);
+    enhancementLabel.attachToComponent(&enhancementSlider, true);
+    addAndMakeVisible(enhancementLabel);
+    
+    // Bypass button (unchanged)
     bypassButton.setButtonText("Bypass");
-    // FIXED: Load value from atomic parameter pointer
     bypassButton.setToggleState(audioProcessor.bypassParam->load() > 0.5f, juce::dontSendNotification);
     bypassButton.onStateChange = [this]()
     {
-        // FIXED: Store boolean as float to atomic parameter pointer
         audioProcessor.bypassParam->store(bypassButton.getToggleState() ? 1.0f : 0.0f);
     };
     addAndMakeVisible(bypassButton);
     
-    setSize(400, 300);
+    setSize(500, 400); // Larger size for 3 sliders
 }
 
 FootstepDetectorAudioProcessorEditor::~FootstepDetectorAudioProcessorEditor()
@@ -76,8 +86,9 @@ void FootstepDetectorAudioProcessorEditor::resized()
     area.removeFromTop(100); // Space for title
     
     auto sliderArea = area.removeFromTop(80);
-    sensitivitySlider.setBounds(sliderArea.removeFromLeft(180).reduced(10));
-    gainSlider.setBounds(sliderArea.removeFromLeft(180).reduced(10));
+    sensitivitySlider.setBounds(sliderArea.removeFromLeft(150).reduced(10));
+    reductionSlider.setBounds(sliderArea.removeFromLeft(150).reduced(10));    // Was gainSlider
+    enhancementSlider.setBounds(sliderArea.removeFromLeft(150).reduced(10));  // NEW
     
     bypassButton.setBounds(area.removeFromTop(40).reduced(20));
 }
