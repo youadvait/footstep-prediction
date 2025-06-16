@@ -416,8 +416,6 @@ const juce::String FootstepDetectorAudioProcessor::getParameterText(int index)
     }
 }
 
-int FootstepDetectorAudioProcessor::getNumParameters() { return 4; }
-
 // ADD: EqualizerAPO compatibility method
 void FootstepDetectorAudioProcessor::getEditorSize(int& width, int& height)
 {
