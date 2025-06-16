@@ -375,22 +375,24 @@ float FootstepDetectorAudioProcessor::getParameter(int index)
 {
     switch (index) {
         case 0: return sensitivityParam->load();
-        case 1: return (reductionParam->load() - 0.1f) / 0.7f; // Normalize 0.1-0.8 to 0-1
-        case 2: return (enhancementParam->load() - 1.0f) / 1.0f; // Normalize 1.0-2.0 to 0-1
-        case 3: return bypassParam->load();
+        case 1: return (reductionParam->load() - 0.1f) / 0.7f; // FIXED: reductionParam
+        case 2: return (enhancementParam->load() - 1.0f) / 1.0f; // FIXED: enhancementParam
+        case 3: return bypassParam->load(); // FIXED: Now case 3
         default: return 0.0f;
     }
 }
+
 
 void FootstepDetectorAudioProcessor::setParameter(int index, float value)
 {
     switch (index) {
         case 0: sensitivityParam->store(juce::jlimit(0.0f, 1.0f, value)); break;
-        case 1: reductionParam->store(0.1f + (juce::jlimit(0.0f, 1.0f, value) * 0.7f)); break;
-        case 2: enhancementParam->store(1.0f + (juce::jlimit(0.0f, 1.0f, value) * 1.0f)); break;
-        case 3: bypassParam->store(value > 0.5f ? 1.0f : 0.0f); break;
+        case 1: reductionParam->store(0.1f + (juce::jlimit(0.0f, 1.0f, value) * 0.7f)); break; // FIXED: reductionParam
+        case 2: enhancementParam->store(1.0f + (juce::jlimit(0.0f, 1.0f, value) * 1.0f)); break; // FIXED: enhancementParam  
+        case 3: bypassParam->store(value > 0.5f ? 1.0f : 0.0f); break; // FIXED: Now case 3
     }
 }
+
 
 const juce::String FootstepDetectorAudioProcessor::getParameterName(int index)
 {
@@ -407,43 +409,14 @@ const juce::String FootstepDetectorAudioProcessor::getParameterText(int index)
 {
     switch (index) {
         case 0: return juce::String(sensitivityParam->load(), 2);
-        case 1: return juce::String((1.0f - reductionParam->load()) * 100.0f, 0) + "%"; // Show as % reduction
+        case 1: return juce::String((1.0f - reductionParam->load()) * 100.0f, 0) + "%";
         case 2: return juce::String(enhancementParam->load(), 1) + "x";
         case 3: return bypassParam->load() > 0.5f ? "On" : "Off";
         default: return {};
     }
 }
 
-int FootstepDetectorAudioProcessor::getNumParameters() override { return 4; } // Now 4 parameters
-
-void FootstepDetectorAudioProcessor::setParameter(int index, float value)
-{
-    switch (index) {
-        case 0: sensitivityParam->store(juce::jlimit(0.0f, 1.0f, value)); break;
-        case 1: gainParam->store(1.0f + (juce::jlimit(0.0f, 1.0f, value) * 7.0f)); break;
-        case 2: bypassParam->store(value > 0.5f ? 1.0f : 0.0f); break;
-    }
-}
-
-const juce::String FootstepDetectorAudioProcessor::getParameterName(int index)
-{
-    switch (index) {
-        case 0: return "Sensitivity";
-        case 1: return "Gain";
-        case 2: return "Bypass";
-        default: return {};
-    }
-}
-
-const juce::String FootstepDetectorAudioProcessor::getParameterText(int index)
-{
-    switch (index) {
-        case 0: return juce::String(sensitivityParam->load(), 2);
-        case 1: return juce::String(gainParam->load(), 1) + "x";
-        case 2: return bypassParam->load() > 0.5f ? "On" : "Off";
-        default: return {};
-    }
-}
+int FootstepDetectorAudioProcessor::getNumParameters() { return 4; }
 
 // ADD: EqualizerAPO compatibility method
 void FootstepDetectorAudioProcessor::getEditorSize(int& width, int& height)
