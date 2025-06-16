@@ -15,11 +15,13 @@ FootstepDetectorAudioProcessor::FootstepDetectorAudioProcessor()
     :
 #endif
     parameters (*this, nullptr, juce::Identifier ("FootstepDetector"),
-                {
-                    std::make_unique<juce::AudioParameterFloat> ("sensitivity", "Sensitivity", 0.0f, 1.0f, 0.5f),
-                    std::make_unique<juce::AudioParameterFloat> ("gain", "Gain", 1.0f, 8.0f, 3.0f),
-                    std::make_unique<juce::AudioParameterBool> ("bypass", "Bypass", false)
-                })
+    {
+        std::make_unique<juce::AudioParameterFloat> ("sensitivity", "Sensitivity", 0.0f, 1.0f, 0.7f),
+        std::make_unique<juce::AudioParameterFloat> ("reduction", "Reduction", 0.1f, 0.8f, 0.3f),
+        std::make_unique<juce::AudioParameterFloat> ("enhancement", "Enhancement", 1.0f, 2.0f, 1.2f),
+        std::make_unique<juce::AudioParameterBool> ("bypass", "Bypass", false)
+    })
+
 {
     footstepClassifier = std::make_unique<FootstepClassifier>();
     
@@ -40,7 +42,8 @@ FootstepDetectorAudioProcessor::FootstepDetectorAudioProcessor()
     
     // Get parameter pointers
     sensitivityParam = parameters.getRawParameterValue ("sensitivity");
-    gainParam = parameters.getRawParameterValue ("gain");
+    reductionParam = parameters.getRawParameterValue ("reduction");
+    enhancementParam = parameters.getRawParameterValue ("enhancement");
     bypassParam = parameters.getRawParameterValue ("bypass");
 }
 
@@ -192,7 +195,8 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
         buffer.clear(i, 0, buffer.getNumSamples());
 
     float sensitivity = juce::jlimit(0.0f, 1.0f, sensitivityParam->load());
-    float gain = juce::jlimit(1.0f, 3.0f, gainParam->load()); // FIXED: Reduced max gain to 3x
+    float reduction = juce::jlimit(0.1f, 0.8f, reductionParam->load());        // How much to reduce non-footsteps
+    float enhancement = juce::jlimit(1.0f, 2.0f, enhancementParam->load());   // How much to enhance footsteps
     bool bypass = bypassParam->load() > 0.5f;
     
     if (bypass) {
@@ -219,36 +223,36 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
                 continue;
             }
             
-            // Detection with balanced threshold
+            // Detection with balanced threshold (same as before)
             bool isFootstep = footstepClassifier->detectFootstep(inputSample, sensitivity);
             
-            // Attack-Hold-Release envelope system
+            // REVERSED LOGIC: Reduce non-footsteps, enhance footsteps
             if (isFootstep)
             {
-                // Start hold phase for full 200ms duration
-                targetAmplification = gain;
+                // FOOTSTEP DETECTED: Keep at normal volume or slightly enhance
+                targetAmplification = enhancement; // 1.0 - 2.0x (slight enhancement)
                 holdSamples = footstepHoldDuration; // 200ms hold
                 inHoldPhase = true;
             }
             else if (inHoldPhase && holdSamples > 0)
             {
-                // Maintain amplification for full footstep duration
-                targetAmplification = gain;
+                // HOLD PHASE: Continue enhancing footstep
+                targetAmplification = enhancement;
                 holdSamples--; // Count down hold time
             }
             else if (inHoldPhase && holdSamples <= 0)
             {
-                // Start release phase
-                targetAmplification = 1.0f;
+                // END HOLD: Start reducing non-footstep sounds
+                targetAmplification = reduction; // 0.1 - 0.8x (reduce non-footsteps)
                 inHoldPhase = false;
             }
             else
             {
-                // Target unity gain
-                targetAmplification = 1.0f;
+                // NOT FOOTSTEP: Reduce volume of everything else
+                targetAmplification = reduction; // 0.1 - 0.8x (smart noise reduction)
             }
             
-            // Smooth envelope interpolation
+            // Smooth envelope interpolation (same as before)
             if (currentAmplification < targetAmplification)
             {
                 // Attack phase
@@ -260,25 +264,30 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
                 currentAmplification += (targetAmplification - currentAmplification) * envelopeRelease;
             }
             
-            // UPDATED: Apply amplification with gentle limiting
-            if (currentAmplification > 1.01f)
+            // Apply smart noise reduction processing
+            if (std::abs(currentAmplification - 1.0f) > 0.01f) // Only process if not unity gain
             {
-                float multiBandSample = applyMultiBandEQ(inputSample, channel);
-                float amplified = multiBandSample * currentAmplification;
+                float processedSample = inputSample;
                 
-                // NEW: Soft limiting above 0.7
-                if (std::abs(amplified) > 0.7f) {
-                    float sign = (amplified >= 0.0f) ? 1.0f : -1.0f;
-                    float abs_amp = std::abs(amplified);
-                    amplified = sign * (0.7f + (abs_amp - 0.7f) * 0.25f);
+                // Apply EQ enhancement only when amplifying footsteps
+                if (currentAmplification > 1.0f) {
+                    processedSample = applyMultiBandEQ(inputSample, channel);
                 }
                 
-                // UPDATED: Hard limiting at 0.85 (was 0.95)
-                channelData[sample] = juce::jlimit(-0.85f, 0.85f, amplified);
+                float amplified = processedSample * currentAmplification;
+                
+                // Gentle limiting for both enhancement and reduction
+                if (std::abs(amplified) > 0.8f) {
+                    float sign = (amplified >= 0.0f) ? 1.0f : -1.0f;
+                    float abs_amp = std::abs(amplified);
+                    amplified = sign * (0.8f + (abs_amp - 0.8f) * 0.1f);
+                }
+                
+                channelData[sample] = juce::jlimit(-0.9f, 0.9f, amplified);
             }
             else
             {
-                channelData[sample] = inputSample;
+                channelData[sample] = inputSample; // Pass through unchanged
             }
         }
     }
@@ -366,11 +375,46 @@ float FootstepDetectorAudioProcessor::getParameter(int index)
 {
     switch (index) {
         case 0: return sensitivityParam->load();
-        case 1: return (gainParam->load() - 1.0f) / 7.0f; // Normalize 1-8 to 0-1
-        case 2: return bypassParam->load();
+        case 1: return (reductionParam->load() - 0.1f) / 0.7f; // Normalize 0.1-0.8 to 0-1
+        case 2: return (enhancementParam->load() - 1.0f) / 1.0f; // Normalize 1.0-2.0 to 0-1
+        case 3: return bypassParam->load();
         default: return 0.0f;
     }
 }
+
+void FootstepDetectorAudioProcessor::setParameter(int index, float value)
+{
+    switch (index) {
+        case 0: sensitivityParam->store(juce::jlimit(0.0f, 1.0f, value)); break;
+        case 1: reductionParam->store(0.1f + (juce::jlimit(0.0f, 1.0f, value) * 0.7f)); break;
+        case 2: enhancementParam->store(1.0f + (juce::jlimit(0.0f, 1.0f, value) * 1.0f)); break;
+        case 3: bypassParam->store(value > 0.5f ? 1.0f : 0.0f); break;
+    }
+}
+
+const juce::String FootstepDetectorAudioProcessor::getParameterName(int index)
+{
+    switch (index) {
+        case 0: return "Sensitivity";
+        case 1: return "Reduction";
+        case 2: return "Enhancement";
+        case 3: return "Bypass";
+        default: return {};
+    }
+}
+
+const juce::String FootstepDetectorAudioProcessor::getParameterText(int index)
+{
+    switch (index) {
+        case 0: return juce::String(sensitivityParam->load(), 2);
+        case 1: return juce::String((1.0f - reductionParam->load()) * 100.0f, 0) + "%"; // Show as % reduction
+        case 2: return juce::String(enhancementParam->load(), 1) + "x";
+        case 3: return bypassParam->load() > 0.5f ? "On" : "Off";
+        default: return {};
+    }
+}
+
+int FootstepDetectorAudioProcessor::getNumParameters() override { return 4; } // Now 4 parameters
 
 void FootstepDetectorAudioProcessor::setParameter(int index, float value)
 {

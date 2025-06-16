@@ -45,14 +45,15 @@ public:
     void setParameter(int index, float value) override;
     const juce::String getParameterName(int index) override;
     const juce::String getParameterText(int index) override;
-    int getNumParameters() override { return 3; }
+    int getNumParameters() override { return 4; }
 
     // AudioProcessorValueTreeState for proper parameter management
     juce::AudioProcessorValueTreeState parameters;
     
     // Parameter pointers
     std::atomic<float>* sensitivityParam = nullptr;
-    std::atomic<float>* gainParam = nullptr;
+    std::atomic<float>* reductionParam = nullptr;    // How much to reduce non-footsteps
+    std::atomic<float>* enhancementParam = nullptr;  // How much to enhance footsteps
     std::atomic<float>* bypassParam = nullptr;
 
 private:
