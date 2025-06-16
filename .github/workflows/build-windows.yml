@@ -2,10 +2,10 @@ name: Build Windows VST3
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, vst3-variation ]  # ADD your branch
   pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+    branches: [ main, master, vst3-variation ]  # ADD your branch
+  workflow_dispatch:  # Also add manual trigger
 
 jobs:
   build-windows:
