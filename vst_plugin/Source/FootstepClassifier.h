@@ -43,4 +43,6 @@ private:
     float calculateConfidence(float energy, float frequency);
 
     float backgroundNoise = 0.015f;
+
+    float calculateUltraSelectiveConfidence(float energy, float frequency);
 };

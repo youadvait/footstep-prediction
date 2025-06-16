@@ -195,7 +195,8 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
         buffer.clear(i, 0, buffer.getNumSamples());
 
     float sensitivity = juce::jlimit(0.0f, 1.0f, sensitivityParam->load());
-    float reduction = juce::jlimit(0.1f, 0.8f, reductionParam->load());        // How much to reduce non-footsteps
+    float reductionLevel = juce::jlimit(0.1f, 0.8f, reductionParam->load());
+    float actualReduction = 1.0f - reductionLevel;
     float enhancement = juce::jlimit(1.0f, 2.0f, enhancementParam->load());   // How much to enhance footsteps
     bool bypass = bypassParam->load() > 0.5f;
     
@@ -227,30 +228,20 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
             bool isFootstep = footstepClassifier->detectFootstep(inputSample, sensitivity);
             
             // REVERSED LOGIC: Reduce non-footsteps, enhance footsteps
+            // REMOVE footstep enhancement completely - just noise gate
             if (isFootstep)
             {
-                // FOOTSTEP DETECTED: Keep at normal volume or slightly enhance
-                targetAmplification = enhancement; // 1.0 - 2.0x (slight enhancement)
-                holdSamples = footstepHoldDuration; // 200ms hold
+                // FOOTSTEP: Pass through at full volume (no enhancement)
+                targetAmplification = 1.0f; // No amplification, just pass through
+                holdSamples = footstepHoldDuration;
                 inHoldPhase = true;
-            }
-            else if (inHoldPhase && holdSamples > 0)
-            {
-                // HOLD PHASE: Continue enhancing footstep
-                targetAmplification = enhancement;
-                holdSamples--; // Count down hold time
-            }
-            else if (inHoldPhase && holdSamples <= 0)
-            {
-                // END HOLD: Start reducing non-footstep sounds
-                targetAmplification = reduction; // 0.1 - 0.8x (reduce non-footsteps)
-                inHoldPhase = false;
             }
             else
             {
-                // NOT FOOTSTEP: Reduce volume of everything else
-                targetAmplification = reduction; // 0.1 - 0.8x (smart noise reduction)
+                // NOT FOOTSTEP: Apply reduction (noise gate behavior)
+                targetAmplification = actualReduction; // 0.2 to 0.9 (20% to 90% volume)
             }
+
             
             // Smooth envelope interpolation (same as before)
             if (currentAmplification < targetAmplification)
