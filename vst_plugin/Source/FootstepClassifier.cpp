@@ -158,7 +158,7 @@ bool FootstepClassifier::isInCooldown() const
     return cooldownCounter > 0; 
 }
 
-float FootstepClassifier::calculateUltraSelectiveConfidence(float energy, float frequency)
+/*float FootstepClassifier::calculateUltraSelectiveConfidence(float energy, float frequency)
 {
     // ULTRA-RESTRICTIVE: Only very specific footstep characteristics
     
@@ -181,6 +181,7 @@ float FootstepClassifier::calculateUltraSelectiveConfidence(float energy, float 
     
     return confidence;
 }
+*/
 
 float FootstepClassifier::calculateRealisticConfidence(float energy, float frequency)
 {
