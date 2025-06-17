@@ -45,5 +45,5 @@ private:
     float backgroundNoise = 0.015f;
 
     // float calculateUltraSelectiveConfidence(float energy, float frequency);
-    float FootstepClassifier::calculateRealisticConfidence(float energy, float frequency);
+    float calculateRealisticConfidence(float energy, float frequency);
 };
