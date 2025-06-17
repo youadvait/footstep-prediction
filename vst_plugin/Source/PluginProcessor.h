@@ -56,6 +56,8 @@ public:
     std::atomic<float>* enhancementParam = nullptr;  // How much to enhance footsteps
     std::atomic<float>* bypassParam = nullptr;
 
+    FootstepClassifier* getFootstepClassifier() const { return footstepClassifier.get(); }
+
 private:
     std::unique_ptr<FootstepClassifier> footstepClassifier;
     std::vector<juce::dsp::IIR::Filter<float>> lowShelfFilter;

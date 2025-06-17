@@ -229,17 +229,32 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
             
             // REVERSED LOGIC: Reduce non-footsteps, enhance footsteps
             // REMOVE footstep enhancement completely - just noise gate
+            // In processBlock(), replace the reduction logic:
             if (isFootstep)
             {
-                // FOOTSTEP: Pass through at full volume (no enhancement)
-                targetAmplification = 1.0f; // No amplification, just pass through
+                // FOOTSTEP: Pass through at full volume
+                targetAmplification = 1.0f;
                 holdSamples = footstepHoldDuration;
                 inHoldPhase = true;
             }
+            else if (inHoldPhase && holdSamples > 0)
+            {
+                // HOLD PHASE: Continue at full volume
+                targetAmplification = 1.0f;
+                holdSamples--;
+            }
+            else if (inHoldPhase && holdSamples <= 0)
+            {
+                // END HOLD: Start AGGRESSIVE reduction
+                float reductionLevel = juce::jlimit(0.1f, 0.8f, reductionParam->load());
+                targetAmplification = 1.0f - reductionLevel; // 0.1→0.9 reduction, 0.8→0.2 reduction
+                inHoldPhase = false;
+            }
             else
             {
-                // NOT FOOTSTEP: Apply reduction (noise gate behavior)
-                targetAmplification = actualReduction; // 0.2 to 0.9 (20% to 90% volume)
+                // NOT FOOTSTEP: AGGRESSIVE reduction (very obvious)
+                float reductionLevel = juce::jlimit(0.1f, 0.8f, reductionParam->load());
+                targetAmplification = 1.0f - reductionLevel; // 0.1→0.9, 0.8→0.2 (20% volume!)
             }
 
             

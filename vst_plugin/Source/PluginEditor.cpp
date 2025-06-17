@@ -92,3 +92,27 @@ void FootstepDetectorAudioProcessorEditor::resized()
     
     bypassButton.setBounds(area.removeFromTop(40).reduced(20));
 }
+
+void FootstepDetectorAudioProcessorEditor::paint(juce::Graphics& g)
+{
+    g.fillAll(juce::Colour(0xff2a2a2a));
+    
+    g.setColour(juce::Colours::white);
+    g.setFont(16.0f);
+    g.drawFittedText("FootstepDetector - Noise Gate", getLocalBounds().removeFromTop(30), juce::Justification::centred, 1);
+
+    bool isDetecting = audioProcessor.getFootstepClassifier() && 
+                      !audioProcessor.getFootstepClassifier()->isInCooldown();
+    
+    if (isDetecting) {
+        g.setColour(juce::Colours::green);
+        g.fillEllipse(getWidth() - 30, 10, 20, 20);
+        g.setColour(juce::Colours::white);
+        g.drawText("DETECTING", getWidth() - 100, 35, 80, 20, juce::Justification::centred);
+    } else {
+        g.setColour(juce::Colours::red);
+        g.fillEllipse(getWidth() - 30, 10, 20, 20);
+        g.setColour(juce::Colours::white);
+        g.drawText("REDUCING", getWidth() - 100, 35, 80, 20, juce::Justification::centred);
+    }
+}
