@@ -31,7 +31,7 @@ juce_add_plugin(FootstepDetector
     COPY_PLUGIN_AFTER_BUILD FALSE
     VST3_CATEGORIES "Fx"
     BUNDLE_ID "com.footsteptech.footstepdetector.ml"
-    DESCRIPTION "ML-powered footstep detection and enhancement for gaming (97.5% accuracy)"
+    DESCRIPTION "ML-powered footstep detection for gaming"  # FIXED: Safe description
     PLUGIN_VERSION 1.0.0
 )
 
@@ -40,10 +40,9 @@ target_sources(FootstepDetector PRIVATE
     vst_plugin/Source/PluginProcessor.cpp
     vst_plugin/Source/PluginEditor.cpp
     vst_plugin/Source/MLFootstepClassifier.cpp  # NEW: ML classifier
-    # Removed: FootstepClassifier.cpp (old energy-based)
 )
 
-# OPTIONAL: Include model files as resources (if you want them embedded)
+# OPTIONAL: Include model files as resources
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vst_plugin/Source/models/footstep_detector_realistic.tflite")
     target_sources(FootstepDetector PRIVATE
         vst_plugin/Source/models/footstep_detector_realistic.tflite
@@ -58,9 +57,9 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vst_plugin/Source/models/footstep_detecto
         COMMENT "Copying ML model files to build directory"
     )
     
-    message(STATUS "✅ ML model files will be included in build")
+    message(STATUS "ML model files will be included in build")
 else()
-    message(STATUS "⚠️  ML model files not found - plugin will use pre-trained weights")
+    message(STATUS "ML model files not found - plugin will use pre-trained weights")
 endif()
 
 target_link_libraries(FootstepDetector PRIVATE
@@ -88,9 +87,8 @@ target_compile_definitions(FootstepDetector PRIVATE
     JucePlugin_WantsMidiInput=0
     JucePlugin_ProducesMidiOutput=0
     
-    # ML-specific defines
+    # ML-specific defines (safe format)
     USE_ML_CLASSIFIER=1
-    ML_MODEL_VERSION="97.5"
     
     $<$<PLATFORM_ID:Windows>:_WIN32_WINNT=0x0601>
     $<$<PLATFORM_ID:Windows>:WINVER=0x0601>
@@ -110,7 +108,6 @@ if(WIN32)
 endif()
 
 # Print build configuration
-message(STATUS "🚀 Building FootstepDetector with ML Enhancement")
-message(STATUS "   🤖 ML Classifier: ENABLED")
-message(STATUS "   📊 Model Accuracy: 97.5%")
-message(STATUS "   🎮 Optimized for: Gaming Audio")
+message(STATUS "Building FootstepDetector with ML Enhancement")
+message(STATUS "ML Classifier: ENABLED")
+message(STATUS "Optimized for: Gaming Audio")
