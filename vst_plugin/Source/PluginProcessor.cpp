@@ -246,6 +246,20 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
     float enhancement = juce::jlimit(1.0f, 2.0f, enhancementParam->load());
     bool bypass = bypassParam->load() > 0.5f;
     
+    // DEBUG: Print parameter values periodically
+    static int debugCounter = 0;
+    debugCounter++;
+    if (debugCounter % 44100 == 0) { // Every ~1 second at 44.1kHz
+        std::cout << "🔧 DEBUG - Sensitivity: " << sensitivity 
+                  << " | Reduction: " << reductionLevel 
+                  << " | Enhancement: " << enhancement 
+                  << " | Bypass: " << (bypass ? "ON" : "OFF") << std::endl;
+        
+        if (mlFootstepClassifier) {
+            mlFootstepClassifier->printDebugStats();
+        }
+    }
+    
     if (bypass) {
         isProcessing = false;
         return;

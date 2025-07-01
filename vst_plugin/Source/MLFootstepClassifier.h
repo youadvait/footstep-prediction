@@ -25,6 +25,10 @@ public:
     float getBackgroundNoise() const { return 0.015f; }
     bool isInCooldown() const { return cooldownCounter > 0; }
     
+    // Debug methods
+    void printDebugStats() const;
+    void resetDebugStats();
+    
 private:
     // Audio processing parameters
     static constexpr int BUFFER_SIZE = 2048;  // Smaller buffer for real-time
@@ -38,12 +42,17 @@ private:
     float lastConfidence = 0.0f;
     float lastEnergy = 0.0f;
     int cooldownCounter = 0;
+    int processingCounter = 0;  // Move from static to instance variable
     double currentSampleRate = 44100.0;
     
     // ML model weights (simplified - pre-computed from your trained model)
     std::vector<float> modelWeights;
     std::vector<float> modelBias;
     bool modelLoaded = false;
+    
+    // Debug counters
+    int totalDetections = 0;
+    int falsePositiveCounter = 0;
     
     // Feature extraction
     void extractFeatures(const float* audio, int length, float* features);

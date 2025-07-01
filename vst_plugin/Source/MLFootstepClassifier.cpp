@@ -7,16 +7,35 @@ MLFootstepClassifier::MLFootstepClassifier()
 {
     audioBuffer.resize(BUFFER_SIZE, 0.0f);
     
-    // Pre-computed weights from your 97.5% accurate model
-    // These are simplified approximations of your trained CNN
+    // FIXED: Realistic model weights that actually discriminate
+    // These weights favor low-frequency, moderate energy signals (footsteps)
+    // and penalize high-frequency, high-energy signals (gunshots/explosions)
     modelWeights = {
-        0.8f, -0.3f, 0.6f, -0.2f, 0.7f, -0.1f, 0.5f, -0.4f,
-        0.9f, -0.2f, 0.4f, -0.5f, 0.3f, -0.6f, 0.8f, -0.1f,
-        0.2f, -0.7f, 0.5f, -0.3f, 0.6f, -0.4f, 0.7f, -0.2f,
-        0.1f, -0.8f, 0.9f, -0.1f, 0.4f, -0.5f, 0.3f, -0.6f
+        // Energy features (16 bands) - favor moderate energy in low bands
+        0.4f, 0.3f, 0.2f, 0.1f, -0.1f, -0.2f, -0.3f, -0.4f,  // Low to high energy bands
+        -0.5f, -0.6f, -0.7f, -0.8f, -0.9f, -1.0f, -1.1f, -1.2f,  // Penalize high bands
+        
+        // Spectral features (8 bands) - penalize very high frequencies
+        -0.1f, -0.2f, -0.3f, -0.4f, -0.5f, -0.6f, -0.7f, -0.8f,
+        
+        // Temporal features
+        0.6f,   // RMS (favor moderate levels)
+        -0.3f,  // Zero crossing rate (penalize high ZCR)
+        -0.8f,  // Spectral centroid (penalize high frequencies)
+        0.2f,   // Max amplitude
+        0.4f,   // Energy
+        0.1f,   // RMS to peak ratio
+        -0.5f,  // ZCR * spectral centroid
+        0.3f    // Energy to frequency ratio
     };
     
-    modelBias = {0.2f}; // Single bias for binary output
+    // FIXED: Negative bias to make detection more selective
+    modelBias = {-1.2f}; // Negative bias requires strong evidence for footstep detection
+    
+    // Initialize debug counters
+    totalDetections = 0;
+    falsePositiveCounter = 0;
+    processingCounter = 0;
 }
 
 MLFootstepClassifier::~MLFootstepClassifier()
@@ -58,7 +77,6 @@ bool MLFootstepClassifier::detectFootstep(float inputSample, float sensitivity)
     bufferPos = (bufferPos + 1) % BUFFER_SIZE;
     
     // Process every 256 samples for efficiency (~6ms at 44.1kHz)
-    static int processingCounter = 0;
     processingCounter++;
     
     if (processingCounter < 256) {
@@ -84,17 +102,42 @@ bool MLFootstepClassifier::detectFootstep(float inputSample, float sensitivity)
     float confidence = runSimpleInference(features.data());
     lastConfidence = confidence;
     
-    // Apply sensitivity threshold (calibrated for your trained model)
-    float threshold = 0.25f + (1.0f - sensitivity) * 0.45f; // 0.25 to 0.70 range
+    // FIXED: More conservative threshold mapping
+    // sensitivity = 1.0 (max) → threshold = 0.1 (very sensitive)
+    // sensitivity = 0.0 (min) → threshold = 0.8 (very conservative)
+    float threshold = 0.8f - (sensitivity * 0.7f); // 0.1 to 0.8 range
     
     bool isFootstep = confidence > threshold;
     
+    // Additional energy-based filter to reduce false positives
+    if (isFootstep) {
+        float currentEnergy = features[24]; // RMS energy
+        lastEnergy = currentEnergy;
+        
+        // Reject if energy is too high (likely explosion/gunshot) or too low (likely noise)
+        if (currentEnergy > 0.3f || currentEnergy < 0.01f) {
+            isFootstep = false;
+        }
+        
+        // Reject if spectral centroid is too high (likely high-frequency noise)
+        if (features[26] > 4000.0f) {
+            isFootstep = false;
+        }
+    }
+    
     if (isFootstep) {
         cooldownCounter = static_cast<int>(currentSampleRate * 0.15); // 150ms cooldown
+        totalDetections++;
         
         std::cout << "🤖 ML FOOTSTEP DETECTED! Confidence: " << confidence 
                   << " | Threshold: " << threshold 
-                  << " | Enhanced Detection" << std::endl;
+                  << " | Energy: " << lastEnergy
+                  << " | Total: " << totalDetections << std::endl;
+    } else {
+        // Count potential false positives (high confidence but rejected by filters)
+        if (confidence > threshold) {
+            falsePositiveCounter++;
+        }
     }
     
     return isFootstep;
@@ -148,24 +191,51 @@ float MLFootstepClassifier::runSimpleInference(const float* features)
         return 0.0f;
     }
     
-    // Simple linear model (approximates your CNN's learned patterns)
+    // FIXED: Add feature normalization to prevent extreme activations
+    std::vector<float> normalizedFeatures(FEATURE_SIZE);
+    
+    // Normalize features to reasonable ranges
+    for (int i = 0; i < FEATURE_SIZE; i++) {
+        if (i < 16) {
+            // Energy features - clamp to [0, 1] range
+            normalizedFeatures[i] = std::max(0.0f, std::min(1.0f, features[i] * 10.0f));
+        } else if (i < 24) {
+            // Spectral features - normalize frequency values
+            normalizedFeatures[i] = std::max(0.0f, std::min(1.0f, features[i] / 8000.0f));
+        } else {
+            // Temporal features - various normalizations
+            switch (i) {
+                case 24: // RMS
+                case 28: // Energy
+                    normalizedFeatures[i] = std::max(0.0f, std::min(1.0f, features[i] * 5.0f));
+                    break;
+                case 25: // Zero crossing rate
+                    normalizedFeatures[i] = std::max(0.0f, std::min(1.0f, features[i]));
+                    break;
+                case 26: // Spectral centroid
+                    normalizedFeatures[i] = std::max(0.0f, std::min(1.0f, features[i] / 8000.0f));
+                    break;
+                default:
+                    normalizedFeatures[i] = std::max(-1.0f, std::min(1.0f, features[i]));
+                    break;
+            }
+        }
+    }
+    
+    // Simple linear model with normalized features
     float activation = modelBias[0];
     
     for (int i = 0; i < FEATURE_SIZE; i++) {
-        activation += features[i] * modelWeights[i];
+        activation += normalizedFeatures[i] * modelWeights[i];
     }
     
     // Sigmoid activation for binary classification
     float confidence = 1.0f / (1.0f + std::exp(-activation));
     
-    // Apply learned thresholds from your 97.5% model
-    // Boost confidence for footstep-like patterns
-    if (features[24] > 0.02f && features[24] < 0.15f && // Energy in footstep range
-        features[26] > 800.0f && features[26] < 3000.0f) { // Frequency in footstep range
-        confidence *= 1.2f; // Boost confidence
-    }
+    // REMOVED: The problematic hardcoded confidence boosting
+    // This was causing everything to be detected as footsteps
     
-    return std::min(1.0f, std::max(0.0f, confidence));
+    return std::max(0.0f, std::min(1.0f, confidence));
 }
 
 float MLFootstepClassifier::calculateRMS(const float* audio, int length)
@@ -183,18 +253,27 @@ float MLFootstepClassifier::calculateSpectralCentroid(const float* audio, int le
 {
     if (length <= 2) return 1000.0f;
     
-    float weightedSum = 0.0f;
-    float magnitudeSum = 0.0f;
+    // FIXED: Proper spectral centroid calculation using simple frequency analysis
+    // Instead of treating time-domain samples as frequency data,
+    // we'll estimate spectral centroid using a simplified approach
     
-    for (int i = 1; i < length / 2; i++) {
-        float frequency = (float)i * currentSampleRate / length;
-        float magnitude = std::abs(audio[i]);
-        
-        weightedSum += frequency * magnitude;
-        magnitudeSum += magnitude;
+    // Calculate approximate frequency content using zero-crossing rate and energy distribution
+    float zcr = calculateZeroCrossingRate(audio, length);
+    float rms = calculateRMS(audio, length);
+    
+    // Simple heuristic: combine ZCR (indicates frequency content) with energy
+    // ZCR correlates with frequency content - higher ZCR = higher frequencies
+    float estimatedCentroid = 500.0f + (zcr * 2000.0f); // Base 500Hz + ZCR influence
+    
+    // Adjust based on energy - very high energy often indicates low-frequency content
+    if (rms > 0.1f) {
+        estimatedCentroid *= 0.7f; // High energy -> lower frequency estimate
+    } else if (rms < 0.02f) {
+        estimatedCentroid *= 1.3f; // Low energy -> higher frequency estimate  
     }
     
-    return magnitudeSum > 0.0f ? weightedSum / magnitudeSum : 1000.0f;
+    // Clamp to reasonable range for audio signals
+    return std::max(200.0f, std::min(8000.0f, estimatedCentroid));
 }
 
 float MLFootstepClassifier::calculateZeroCrossingRate(const float* audio, int length)
@@ -209,4 +288,24 @@ float MLFootstepClassifier::calculateZeroCrossingRate(const float* audio, int le
     }
     
     return (float)crossings / (length - 1);
+}
+
+// Debug methods implementation
+void MLFootstepClassifier::printDebugStats() const
+{
+    std::cout << "=== ML Footstep Classifier Debug Stats ===" << std::endl;
+    std::cout << "Total detections: " << totalDetections << std::endl;
+    std::cout << "False positives filtered: " << falsePositiveCounter << std::endl;
+    std::cout << "Last confidence: " << lastConfidence << std::endl;
+    std::cout << "Last energy: " << lastEnergy << std::endl;
+    std::cout << "Current cooldown: " << cooldownCounter << std::endl;
+    std::cout << "Model loaded: " << (modelLoaded ? "Yes" : "No") << std::endl;
+    std::cout << "=========================================" << std::endl;
+}
+
+void MLFootstepClassifier::resetDebugStats()
+{
+    totalDetections = 0;
+    falsePositiveCounter = 0;
+    std::cout << "✅ Debug stats reset" << std::endl;
 }
