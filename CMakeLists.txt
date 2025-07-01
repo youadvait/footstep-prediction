@@ -18,7 +18,7 @@ endif()
 add_subdirectory(JUCE)
 
 juce_add_plugin(FootstepDetector
-    PRODUCT_NAME "FootstepDetector ML"
+    PRODUCT_NAME "FootstepDetector"  # FIXED: Removed "ML" and space
     COMPANY_NAME "FootstepTech"
     PLUGIN_MANUFACTURER_CODE FtTc
     PLUGIN_CODE FsDt
@@ -30,10 +30,11 @@ juce_add_plugin(FootstepDetector
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     COPY_PLUGIN_AFTER_BUILD FALSE
     VST3_CATEGORIES "Fx"
-    BUNDLE_ID "com.footsteptech.footstepdetector.ml"
-    DESCRIPTION "ML-powered footstep detection for gaming"  # FIXED: Safe description
+    BUNDLE_ID "com.footsteptech.footstepdetector"  # FIXED: Removed .ml
+    DESCRIPTION "ML-powered footstep detection for gaming"
     PLUGIN_VERSION 1.0.0
 )
+
 
 # UPDATED: Include ML classifier and remove old classifier
 target_sources(FootstepDetector PRIVATE
