@@ -67,8 +67,8 @@ private:
     
     float currentAmplification = 1.0f;
     float targetAmplification = 1.0f;
-    float envelopeAttack = 0.0045f;
-    float envelopeRelease = 0.0003f;
+    float envelopeAttack = 0.002f;
+    float envelopeRelease = 0.0008f;
 
     int holdSamples = 0;
     int footstepHoldDuration = 0;

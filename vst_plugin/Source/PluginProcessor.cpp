@@ -18,7 +18,7 @@ FootstepDetectorAudioProcessor::FootstepDetectorAudioProcessor()
     {
         std::make_unique<juce::AudioParameterFloat> ("sensitivity", "Sensitivity", 0.0f, 1.0f, 0.7f),
         std::make_unique<juce::AudioParameterFloat> ("reduction", "Reduction", 0.1f, 0.8f, 0.3f),
-        std::make_unique<juce::AudioParameterFloat> ("enhancement", "Enhancement", 1.0f, 2.0f, 1.2f),
+        std::make_unique<juce::AudioParameterFloat> ("enhancement", "Enhancement", 1.0f, 1.4f, 1.15f),
         std::make_unique<juce::AudioParameterBool> ("bypass", "Bypass", false)
     })
 {
@@ -78,6 +78,12 @@ FootstepDetectorAudioProcessor::FootstepDetectorAudioProcessor()
     bypassParam = parameters.getRawParameterValue ("bypass");
     
     std::cout << "🚀 ML-Powered FootstepDetector Initialized!" << std::endl;
+    std::cout << "🚀 ANTI-CRACKLING FIXES LOADED!" << std::endl;
+    std::cout << "   🎚️  Subtle enhancement: 1.0x to 1.4x (was 2.0x)" << std::endl;
+    std::cout << "   🎛️  Gentle EQ: 3.7dB total (was 10.5dB)" << std::endl;
+    std::cout << "   🔊 Gain compensation: 0.7x factor applied" << std::endl;
+    std::cout << "   📈 Smoother envelopes: slower attack/release" << std::endl;
+    std::cout << "   🛡️  Gentle limiting: starts at 0.7 (was 0.9)" << std::endl;
 }
 
 
@@ -163,7 +169,7 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
     // Calculate hold duration (200ms for natural footstep decay)
     footstepHoldDuration = static_cast<int>(sampleRate * 0.2);
     
-    // Enhanced EQ for ML-detected footsteps (more aggressive since ML is accurate)
+    // SUBTLE EQ for ML-detected footsteps (gentle enhancement to prevent crackling)
     for (auto& filter : lowShelfFilter) {
         filter.prepare(spec);
         filter.reset();
@@ -171,7 +177,7 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             180.0f,  // Low frequency footstep thump
             0.8f,    // Q factor
-            4.0f     // ML allows more aggressive enhancement: 4dB = 1.58x
+            1.5f     // SUBTLE: 1.5dB = 1.19x (was 4dB)
         );
     }
 
@@ -182,7 +188,7 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             300.0f,  // Mid frequency footstep clarity
             0.7f,    // Q factor
-            3.5f     // ML confidence allows 3.5dB = 1.49x boost
+            1.2f     // SUBTLE: 1.2dB = 1.14x (was 3.5dB)
         );
     }
 
@@ -193,14 +199,15 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             450.0f,  // High frequency footstep definition
             0.6f,    // Q factor
-            3.0f     // ML precision allows 3dB = 1.41x boost
+            1.0f     // SUBTLE: 1dB = 1.12x (was 3dB)
         );
     }
     
-    std::cout << "🎛️  Enhanced EQ prepared for ML-detected footsteps" << std::endl;
-    std::cout << "   🔊 Low shelf (180Hz): +4dB boost" << std::endl;
-    std::cout << "   🔊 Mid peak (300Hz): +3.5dB boost" << std::endl;
-    std::cout << "   🔊 High peak (450Hz): +3dB boost" << std::endl;
+    std::cout << "🎛️  SUBTLE EQ prepared for ML-detected footsteps" << std::endl;
+    std::cout << "   🔊 Low shelf (180Hz): +1.5dB boost (was +4dB)" << std::endl;
+    std::cout << "   🔊 Mid peak (300Hz): +1.2dB boost (was +3.5dB)" << std::endl;
+    std::cout << "   🔊 High peak (450Hz): +1dB boost (was +3dB)" << std::endl;
+    std::cout << "   ✅ Total EQ gain: ~3.7dB (was ~10.5dB)" << std::endl;
 }
 
 
@@ -243,7 +250,7 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
 
     float sensitivity = juce::jlimit(0.0f, 1.0f, sensitivityParam->load());
     float reductionLevel = juce::jlimit(0.1f, 0.8f, reductionParam->load());
-    float enhancement = juce::jlimit(1.0f, 2.0f, enhancementParam->load());
+    float enhancement = juce::jlimit(1.0f, 1.4f, enhancementParam->load());
     bool bypass = bypassParam->load() > 0.5f;
     
     // DEBUG: Print parameter values periodically - less frequent
@@ -252,7 +259,7 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
     if (debugCounter % (44100 * 3) == 0) { // Every ~3 seconds at 44.1kHz
         std::cout << "🔧 PLUGIN DEBUG - Sensitivity: " << sensitivity 
                   << " | Reduction: " << reductionLevel 
-                  << " | Enhancement: " << enhancement 
+                  << " | Enhancement: " << enhancement << " (SUBTLE: max 1.4x, was 2.0x)"
                   << " | Bypass: " << (bypass ? "ON" : "OFF") << std::endl;
         
         if (mlFootstepClassifier) {
@@ -317,10 +324,10 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
                 targetAmplification = std::max(0.1f, targetAmplification); // Minimum 10%
             }
             
-            // Smooth envelope
+            // SMOOTH envelope - prevent harsh jumps
             if (currentAmplification < targetAmplification)
             {
-                float attackRate = isFootstep ? envelopeAttack * 3.0f : envelopeAttack;
+                float attackRate = isFootstep ? envelopeAttack * 1.8f : envelopeAttack; // GENTLE: 1.8x (was 3.0x)
                 currentAmplification += (targetAmplification - currentAmplification) * attackRate;
             }
             else if (currentAmplification > targetAmplification)
@@ -328,27 +335,43 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
                 currentAmplification += (targetAmplification - currentAmplification) * envelopeRelease;
             }
             
-            // Apply processing
+            // Apply processing with proper gain staging
             float processedSample = inputSample;
             
+            // DEBUG: Track amplification values occasionally
+            static int ampDebugCounter = 0;
+            ampDebugCounter++;
+            if (ampDebugCounter % 22050 == 0 && currentAmplification > 1.05f) { // Every ~0.5 seconds
+                std::cout << "🔊 AMPLIFICATION DEBUG - Current: " << currentAmplification 
+                          << " | Target: " << targetAmplification 
+                          << " | Compensated: " << (currentAmplification * 0.7f) 
+                          << " | Hold phase: " << (inHoldPhase ? "YES" : "NO") << std::endl;
+            }
+            
             if (currentAmplification > 1.05f) {
-                // FOOTSTEP ENHANCEMENT: EQ + amplification
+                // FOOTSTEP ENHANCEMENT: Apply subtle EQ first, then gentle amplification
                 processedSample = applyMultiBandEQ(inputSample, channel);
-                processedSample *= currentAmplification;
                 
-                // Smart limiting
-                if (std::abs(processedSample) > 0.9f) {
+                // GAIN COMPENSATION: Reduce amplification to account for EQ gain
+                float compensatedAmplification = currentAmplification * 0.7f; // Compensate for EQ gain
+                processedSample *= compensatedAmplification;
+                
+                // GENTLE limiting - start limiting earlier and more gradually
+                if (std::abs(processedSample) > 0.7f) {
                     float sign = (processedSample >= 0.0f) ? 1.0f : -1.0f;
                     float abs_amp = std::abs(processedSample);
-                    processedSample = sign * (0.9f + (abs_amp - 0.9f) * 0.1f);
+                    // Smooth soft limiting curve
+                    float limitedAmp = 0.7f + (abs_amp - 0.7f) * 0.2f; // Gentle limiting ratio
+                    processedSample = sign * limitedAmp;
                 }
             }
             else if (currentAmplification < 0.95f) {
-                // NOISE REDUCTION
+                // NOISE REDUCTION - simple attenuation
                 processedSample *= currentAmplification;
             }
             
-            channelData[sample] = juce::jlimit(-0.98f, 0.98f, processedSample);
+            // FINAL safety limiting
+            channelData[sample] = juce::jlimit(-0.95f, 0.95f, processedSample);
         }
     }
     
@@ -393,16 +416,22 @@ float FootstepDetectorAudioProcessor::applyMultiBandEQ(float sample, int channel
         return sample;
     }
     
-    // Apply conservative multi-band processing
-    float lowBand = lowShelfFilter[channel].processSample(sample);
-    float midBand = midShelfFilter[channel].processSample(sample);
-    float highBand = highShelfFilter[channel].processSample(sample);
+    // FIXED: Apply filters in series (not parallel) to prevent phase issues
+    float enhanced = sample;
     
-    // CLEAN mixing - unity gain total
-    float enhanced = (lowBand * 0.4f) + (midBand * 0.35f) + (highBand * 0.25f);
+    // Apply low shelf filter
+    enhanced = lowShelfFilter[channel].processSample(enhanced);
     
-    // NO extra boost - clean processing only
-    return enhanced; // Total gain ~1.0x from EQ
+    // Apply mid peak filter
+    enhanced = midShelfFilter[channel].processSample(enhanced);
+    
+    // Apply high peak filter  
+    enhanced = highShelfFilter[channel].processSample(enhanced);
+    
+    // GAIN COMPENSATION: Slightly reduce overall gain to prevent buildup
+    enhanced *= 0.85f; // Compensate for cumulative EQ gain
+    
+    return enhanced;
 }
 
 bool FootstepDetectorAudioProcessor::hasEditor() const
@@ -435,7 +464,7 @@ float FootstepDetectorAudioProcessor::getParameter(int index)
     switch (index) {
         case 0: return sensitivityParam->load();
         case 1: return (reductionParam->load() - 0.1f) / 0.7f; // FIXED: reductionParam
-        case 2: return (enhancementParam->load() - 1.0f) / 1.0f; // FIXED: enhancementParam
+        case 2: return (enhancementParam->load() - 1.0f) / 0.4f; // SUBTLE: adjusted for 1.0-1.4 range
         case 3: return bypassParam->load(); // FIXED: Now case 3
         default: return 0.0f;
     }
@@ -447,7 +476,7 @@ void FootstepDetectorAudioProcessor::setParameter(int index, float value)
     switch (index) {
         case 0: sensitivityParam->store(juce::jlimit(0.0f, 1.0f, value)); break;
         case 1: reductionParam->store(0.1f + (juce::jlimit(0.0f, 1.0f, value) * 0.7f)); break; // FIXED: reductionParam
-        case 2: enhancementParam->store(1.0f + (juce::jlimit(0.0f, 1.0f, value) * 1.0f)); break; // FIXED: enhancementParam  
+        case 2: enhancementParam->store(1.0f + (juce::jlimit(0.0f, 1.0f, value) * 0.4f)); break; // SUBTLE: 1.0 to 1.4x (was 1.0x)
         case 3: bypassParam->store(value > 0.5f ? 1.0f : 0.0f); break; // FIXED: Now case 3
     }
 }

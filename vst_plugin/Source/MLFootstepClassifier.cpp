@@ -40,7 +40,7 @@ MLFootstepClassifier::MLFootstepClassifier()
     std::cout << "   🎯 Balanced model (bias: -0.4, not too conservative)" << std::endl;
     std::cout << "   🎛️  Threshold range: 0.2 to 0.6 (was 0.1 to 0.8)" << std::endl;
     std::cout << "   🔊 Relaxed energy limits: 0.003 to 0.6 (was 0.01 to 0.3)" << std::endl;
-    std::cout << "   📡 Ready for footstep detection!" << std::endl;
+    std::cout << "   📡 Ready for SUBTLE footstep detection!" << std::endl;
 }
 
 MLFootstepClassifier::~MLFootstepClassifier()
