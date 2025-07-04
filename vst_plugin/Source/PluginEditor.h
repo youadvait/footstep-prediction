@@ -21,11 +21,8 @@ private:
     juce::Slider sensitivitySlider;
     juce::Label sensitivityLabel;
     
-    private:
-    juce::Slider reductionSlider;    // Was gainSlider
-    juce::Label reductionLabel;      // Was gainLabel
-    juce::Slider enhancementSlider;  // NEW
-    juce::Label enhancementLabel;    // NEW
+    juce::Slider enhancementSlider;
+    juce::Label enhancementLabel;
     
     juce::ToggleButton bypassButton;
 
