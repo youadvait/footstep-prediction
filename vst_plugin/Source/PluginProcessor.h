@@ -42,12 +42,11 @@ public:
     void setParameter(int index, float value) override;
     const juce::String getParameterName(int index) override;
     const juce::String getParameterText(int index) override;
-    int getNumParameters() override { return 4; }
+    int getNumParameters() override { return 3; }
 
     juce::AudioProcessorValueTreeState parameters;
     
     std::atomic<float>* sensitivityParam = nullptr;
-    std::atomic<float>* reductionParam = nullptr;
     std::atomic<float>* enhancementParam = nullptr;
     std::atomic<float>* bypassParam = nullptr;
 
