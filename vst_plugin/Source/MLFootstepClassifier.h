@@ -28,6 +28,7 @@ public:
     // Debug methods
     void printDebugStats() const;
     void resetDebugStats();
+    void enableTestMode(bool enable) { testMode = enable; }
     
 private:
     // Audio processing parameters
@@ -53,6 +54,7 @@ private:
     // Debug counters
     int totalDetections = 0;
     int falsePositiveCounter = 0;
+    bool testMode = false;
     
     // Feature extraction
     void extractFeatures(const float* audio, int length, float* features);
