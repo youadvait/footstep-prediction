@@ -70,30 +70,81 @@ jobs:
         
     - name: Build ML-Powered VST3 Plugin
       run: |
-        cmake --build build --config Release --target FootstepDetector --parallel 2 --verbose
+        cmake --build build --config Release --parallel 2 --verbose
         
     - name: Verify ML-Enhanced Build Output
       run: |
-        $vst3Path = "build/FootstepDetector_artefacts/Release/VST3/FootstepDetector.vst3"
-        if (Test-Path $vst3Path) {
-          Write-Host "✅ ML-powered VST3 plugin built successfully"
-          Write-Host "🤖 Plugin includes 97.5% accurate ML classifier"
-          Get-ChildItem $vst3Path -Recurse | Select-Object Name, Length
-        } else {
-          Write-Host "❌ VST3 plugin build failed"
+        Write-Host "Checking build artifacts..."
+        Get-ChildItem build -Recurse -Directory | Where-Object { $_.Name -like "*FootstepDetector*" } | ForEach-Object {
+          Write-Host "Found directory: $($_.FullName)"
+          Get-ChildItem $_.FullName -Recurse | ForEach-Object {
+            Write-Host "  - $($_.Name)"
+          }
+        }
+        
+        # Check multiple possible VST3 locations
+        $vst3Paths = @(
+          "build/FootstepDetector_artefacts/Release/VST3/FootstepDetector.vst3",
+          "build/FootstepDetector_VST3_artefacts/Release/VST3/FootstepDetector.vst3",
+          "build/FootstepDetector_artefacts/VST3/FootstepDetector.vst3"
+        )
+        
+        $vst3Found = $false
+        foreach ($path in $vst3Paths) {
+          Write-Host "Checking VST3 path: $path"
+          if (Test-Path $path) {
+            Write-Host "✅ ML-powered VST3 plugin built successfully at: $path"
+            Write-Host "🤖 Plugin includes 97.5% accurate ML classifier"
+            Get-ChildItem $path -Recurse | Select-Object Name, Length
+            $env:VST3_PATH = $path
+            $vst3Found = $true
+            break
+          }
+        }
+        
+        if (-not $vst3Found) {
+          Write-Host "❌ VST3 plugin not found in any expected location"
+          Write-Host "Available build artifacts:"
+          Get-ChildItem build -Recurse -File | Where-Object { $_.Extension -eq ".vst3" -or $_.Name -like "*FootstepDetector*" } | ForEach-Object {
+            Write-Host "  - $($_.FullName)"
+          }
           exit 1
         }
         
     - name: Upload ML-Enhanced Windows VST3 Artifact
+      run: |
+        $vst3Path = $env:VST3_PATH
+        if (-not $vst3Path) {
+          # Fallback search
+          $vst3Path = Get-ChildItem build -Recurse -Directory | Where-Object { $_.Name -eq "FootstepDetector.vst3" } | Select-Object -First 1 -ExpandProperty FullName
+        }
+        
+        if ($vst3Path) {
+          Write-Host "Uploading VST3 from: $vst3Path"
+          # Create upload using GitHub Actions artifact upload
+          # Note: The actual upload will be handled by the upload-artifact action below
+          echo "VST3_UPLOAD_PATH=$vst3Path" | Out-File -FilePath $env:GITHUB_ENV -Append
+        } else {
+          Write-Host "❌ No VST3 found for upload"
+          exit 1
+        }
+        
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: FootstepDetector-ML-Windows-x64-VST3
-        path: build/FootstepDetector_artefacts/Release/VST3/FootstepDetector.vst3
+        path: ${{ env.VST3_UPLOAD_PATH }}
         
     - name: Create ML-Enhanced Release Package
       run: |
+        $vst3Path = $env:VST3_UPLOAD_PATH
+        if (-not $vst3Path) {
+          Write-Host "❌ VST3 path not available for release package"
+          exit 1
+        }
+        
         mkdir FootstepDetector_ML_Windows_Release
-        robocopy build/FootstepDetector_artefacts/Release/VST3/FootstepDetector.vst3 FootstepDetector_ML_Windows_Release/FootstepDetector.vst3 /E
+        robocopy $vst3Path FootstepDetector_ML_Windows_Release/FootstepDetector.vst3 /E
         if ($LASTEXITCODE -le 7) { $LASTEXITCODE = 0 }
         
         echo "FootstepDetector ML VST3 Plugin - Windows x64" > FootstepDetector_ML_Windows_Release/README.txt
