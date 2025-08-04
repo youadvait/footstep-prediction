@@ -61,7 +61,7 @@ jobs:
         
     - name: Build ML-Powered VST3 Plugin
       run: |
-        cmake --build build --config Release --target FootstepDetector_VST3 --parallel 4
+        cmake --build build --config Release --target FootstepDetector --parallel 4
         
     - name: Verify ML-Enhanced Build Output
       run: |

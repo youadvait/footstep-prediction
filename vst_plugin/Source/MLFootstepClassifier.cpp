@@ -37,12 +37,12 @@ MLFootstepClassifier::MLFootstepClassifier()
     falsePositiveCounter = 0;
     processingCounter = 0;
     
-    std::cout << "✅ COMPLETELY REBUILT ML CLASSIFIER!" << std::endl;
-    std::cout << "   🎯 Footstep-optimized weights (low-freq focused)" << std::endl;
-    std::cout << "   🎛️  Sensitivity threshold: 0.1 to 0.7 (realistic range)" << std::endl;
-    std::cout << "   🔊 Energy range: 0.001 to 0.8 (wide but filtered)" << std::endl;
-    std::cout << "   ⚡ Process every 64 samples (faster response)" << std::endl;
-    std::cout << "   📡 Ready for RESPONSIVE footstep detection!" << std::endl;
+    std::cout << "ENHANCED FOOTSTEP DETECTOR LOADED!" << std::endl;
+    std::cout << "   Footstep-optimized weights (low-freq focused)" << std::endl;
+    std::cout << "   Sensitivity threshold: 0.1 to 0.7 (realistic range)" << std::endl;
+    std::cout << "   Energy range: 0.001 to 0.8 (wide but filtered)" << std::endl;
+    std::cout << "   Process every 64 samples (faster response)" << std::endl;
+    std::cout << "   Ready for RESPONSIVE footstep detection!" << std::endl;
 }
 
 MLFootstepClassifier::~MLFootstepClassifier()
@@ -51,16 +51,16 @@ MLFootstepClassifier::~MLFootstepClassifier()
 
 bool MLFootstepClassifier::loadModel(const std::string& modelPath)
 {
-    std::cout << "🤖 Loading simplified ML model (pre-trained weights)" << std::endl;
+    std::cout << "Loading simplified ML model (pre-trained weights)" << std::endl;
     
     // Check if model file exists (for logging purposes)
     std::ifstream file(modelPath);
     if (file.good()) {
-        std::cout << "✅ Model file found: " << modelPath << std::endl;
-        std::cout << "✅ Using pre-computed weights from 97.5% accurate CNN" << std::endl;
+        std::cout << "Model file found: " << modelPath << std::endl;
+        std::cout << "Using pre-computed weights from 97.5% accurate CNN" << std::endl;
         modelLoaded = true;
     } else {
-        std::cout << "⚠️  Model file not found, using pre-trained weights anyway" << std::endl;
+        std::cout << "Model file not found, using pre-trained weights anyway" << std::endl;
         modelLoaded = true; // Still use pre-trained weights
     }
     
@@ -74,7 +74,7 @@ void MLFootstepClassifier::prepare(double sampleRate, int samplesPerBlock)
     bufferPos = 0;
     cooldownCounter = 0;
     
-    std::cout << "✅ Simplified ML classifier prepared for " << sampleRate << " Hz" << std::endl;
+    std::cout << "Simplified ML classifier prepared for " << sampleRate << " Hz" << std::endl;
 }
 
 bool MLFootstepClassifier::detectFootstep(float inputSample, float sensitivity)
@@ -100,7 +100,7 @@ bool MLFootstepClassifier::detectFootstep(float inputSample, float sensitivity)
     static int mlProcessingCount = 0;
     mlProcessingCount++;
     if (mlProcessingCount % 50 == 0) {  // Every 50 ML processing cycles (~3.2 seconds)
-        std::cout << "🤖 ML processing cycle #" << mlProcessingCount << " | Buffer size: " << BUFFER_SIZE << std::endl;
+        std::cout << "ML processing cycle #" << mlProcessingCount << " | Buffer size: " << BUFFER_SIZE << std::endl;
     }
     
     if (cooldownCounter > 0) {
@@ -127,7 +127,7 @@ bool MLFootstepClassifier::detectFootstep(float inputSample, float sensitivity)
     debugCount++;
     
     if (std::abs(sensitivity - lastSensitivity) > 0.01f || debugCount % 100 == 0) {
-        std::cout << "🎛️  DETECTION PARAMS: Sensitivity=" << sensitivity 
+        std::cout << "DETECTION PARAMS: Sensitivity=" << sensitivity 
                   << " | Threshold=" << threshold 
                   << " | Last Confidence=" << confidence << std::endl;
         lastSensitivity = sensitivity;
@@ -143,19 +143,19 @@ bool MLFootstepClassifier::detectFootstep(float inputSample, float sensitivity)
         // Only filter out extreme cases
         if (currentEnergy > 0.8f || currentEnergy < 0.001f) {  // Was too restrictive
             isFootstep = false;
-            std::cout << "🚫 Energy filter rejected: " << currentEnergy << " (too extreme)" << std::endl;
+            std::cout << "Energy filter rejected: " << currentEnergy << " (too extreme)" << std::endl;
         }
         
         // Only filter out very high noise
         if (features[26] > 8000.0f) {  // Was too restrictive
             isFootstep = false;
-            std::cout << "🚫 Frequency filter rejected: " << features[26] << "Hz (too high)" << std::endl;
+            std::cout << "Frequency filter rejected: " << features[26] << "Hz (too high)" << std::endl;
         }
     }
     
     // DEBUG: Show ALL confidence values to help debug the model
     if (debugCount % 25 == 0) {  // Every 25 processing frames (~1.6 seconds)
-        std::cout << "🔍 FULL DEBUG - Confidence: " << confidence 
+        std::cout << "FULL DEBUG - Confidence: " << confidence 
                   << " | Threshold: " << threshold 
                   << " | Energy: " << features[24]
                   << " | Freq: " << features[26] 
@@ -166,14 +166,14 @@ bool MLFootstepClassifier::detectFootstep(float inputSample, float sensitivity)
         cooldownCounter = static_cast<int>(currentSampleRate * 0.1); // 100ms cooldown (shorter)
         totalDetections++;
         
-        std::cout << "🎯🎯🎯 ML FOOTSTEP DETECTED! 🎯🎯🎯" << std::endl;
+        std::cout << "*** ML FOOTSTEP DETECTED! ***" << std::endl;
         std::cout << "   Confidence: " << confidence << " (threshold: " << threshold << ")" << std::endl;
         std::cout << "   Energy: " << lastEnergy << " | Frequency: " << features[26] << "Hz" << std::endl;
         std::cout << "   Total detections: " << totalDetections << std::endl;
     } else {
         // Count potential false negatives (confidence close to threshold)
         if (confidence > threshold * 0.8f) {
-            std::cout << "🟡 Near-miss detection: " << confidence 
+            std::cout << "Near-miss detection: " << confidence 
                       << " (threshold: " << threshold 
                       << ", energy: " << features[24] << ")" << std::endl;
         }
@@ -290,7 +290,7 @@ float MLFootstepClassifier::runSimpleInference(const float* features)
     if (sanityCheckCounter % 100 == 0) {
         float avgActivation = totalActivation / 100.0f;
         float avgConfidence = totalConfidence / 100.0f;
-        std::cout << "🧠 MODEL HEALTH CHECK:" << std::endl;
+        std::cout << "MODEL HEALTH CHECK:" << std::endl;
         std::cout << "   Avg Activation: " << avgActivation << " | Avg Confidence: " << avgConfidence << std::endl;
         std::cout << "   Range: " << minActivation << " to " << maxActivation << std::endl;
         std::cout << "   Current: " << activation << " -> " << confidence << std::endl;
@@ -397,5 +397,5 @@ void MLFootstepClassifier::resetDebugStats()
 {
     totalDetections = 0;
     falsePositiveCounter = 0;
-    std::cout << "✅ Debug stats reset - monitoring restarted" << std::endl;
+    std::cout << "Debug stats reset - monitoring restarted" << std::endl;
 }

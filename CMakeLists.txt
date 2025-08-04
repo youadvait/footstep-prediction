@@ -8,11 +8,14 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Windows-specific optimizations
+# Windows-specific optimizations and compatibility
 if(WIN32)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT /O2")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT /O2")
+    
+    # Ensure proper Windows SDK version
+    set(CMAKE_SYSTEM_VERSION 10.0)
 endif()
 
 add_subdirectory(JUCE)
@@ -95,6 +98,8 @@ target_compile_definitions(FootstepDetector PRIVATE
     $<$<PLATFORM_ID:Windows>:WINVER=0x0601>
     $<$<PLATFORM_ID:Windows>:JUCE_USE_WIN32_FILEBROWSER=1>
     $<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN=1>
+    $<$<PLATFORM_ID:Windows>:NOMINMAX=1>
+    $<$<PLATFORM_ID:Windows>:_CRT_SECURE_NO_WARNINGS=1>
     $<$<PLATFORM_ID:Darwin>:JUCE_USE_NATIVE_ALERT_WINDOWS=1>
 )
 

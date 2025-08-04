@@ -21,13 +21,13 @@ FootstepDetectorAudioProcessor::FootstepDetectorAudioProcessor()
         std::make_unique<juce::AudioParameterBool> ("bypass", "Bypass", false)
     })
 {
-    std::cout << "🚀 INITIALIZING ENHANCED FOOTSTEP DETECTOR..." << std::endl;
+    std::cout << "INITIALIZING ENHANCED FOOTSTEP DETECTOR..." << std::endl;
     
     // Initialize ML classifier first
     mlFootstepClassifier = std::make_unique<MLFootstepClassifier>();
     
     if (!mlFootstepClassifier) {
-        std::cerr << "❌ CRITICAL ERROR: Failed to create ML classifier!" << std::endl;
+        std::cerr << "CRITICAL ERROR: Failed to create ML classifier!" << std::endl;
         return;
     }
     
@@ -44,7 +44,7 @@ FootstepDetectorAudioProcessor::FootstepDetectorAudioProcessor()
     bool modelFound = false;
     
     for (const auto& path : modelPaths) {
-        std::cout << "🔍 Checking model path: " << path.getFullPathName() << std::endl;
+        std::cout << "Checking model path: " << path.getFullPathName() << std::endl;
         if (path.existsAsFile()) {
             modelFile = path;
             modelFound = true;
@@ -54,17 +54,17 @@ FootstepDetectorAudioProcessor::FootstepDetectorAudioProcessor()
     
     // Load ML model
     if (modelFound && mlFootstepClassifier->loadModel(modelFile.getFullPathName().toStdString())) {
-        std::cout << "✅ ML FOOTSTEP DETECTOR LOADED SUCCESSFULLY!" << std::endl;
-        std::cout << "   🤖 Using 97.5% accurate trained model" << std::endl;
-        std::cout << "   📁 Model path: " << modelFile.getFullPathName() << std::endl;
+        std::cout << "ML FOOTSTEP DETECTOR LOADED SUCCESSFULLY!" << std::endl;
+        std::cout << "   Using 97.5% accurate trained model" << std::endl;
+        std::cout << "   Model path: " << modelFile.getFullPathName() << std::endl;
     } else {
-        std::cout << "⚠️  External model file not found, using optimized internal weights" << std::endl;
-        std::cout << "   🤖 Still using advanced ML detection with embedded weights" << std::endl;
+        std::cout << "External model file not found, using optimized internal weights" << std::endl;
+        std::cout << "   Still using advanced ML detection with embedded weights" << std::endl;
         
         if (mlFootstepClassifier->loadModel("")) { // Load with empty path to use internal weights
-            std::cout << "✅ Internal ML model loaded successfully!" << std::endl;
+            std::cout << "Internal ML model loaded successfully!" << std::endl;
         } else {
-            std::cerr << "❌ CRITICAL: Failed to load any ML model!" << std::endl;
+            std::cerr << "CRITICAL: Failed to load any ML model!" << std::endl;
         }
     }
     
@@ -88,16 +88,16 @@ FootstepDetectorAudioProcessor::FootstepDetectorAudioProcessor()
     enhancementParam = parameters.getRawParameterValue ("enhancement");
     bypassParam = parameters.getRawParameterValue ("bypass");
     
-    std::cout << "🚀 ENHANCED ML-POWERED FOOTSTEP DETECTOR READY!" << std::endl;
-    std::cout << "   🎯 FIXED DETECTION SYSTEM:" << std::endl;
-    std::cout << "     • Optimized ML weights for footstep characteristics" << std::endl;
-    std::cout << "     • Faster processing (64 samples = ~1.5ms latency)" << std::endl;
-    std::cout << "     • Realistic sensitivity range (0.1-0.7 threshold)" << std::endl;
-    std::cout << "     • Improved spectral analysis" << std::endl;
-    std::cout << "   🎚️  Default settings: Sensitivity=0.8, Enhancement=1.2x" << std::endl;
-    std::cout << "   🎛️  Gentle EQ: 3.7dB total enhancement" << std::endl;
-    std::cout << "   🔊 Smart gain compensation with soft limiting" << std::endl;
-    std::cout << "   ✅ PASS-THROUGH MODE: No reduction when no footsteps detected" << std::endl;
+    std::cout << "ENHANCED ML-POWERED FOOTSTEP DETECTOR READY!" << std::endl;
+    std::cout << "   FIXED DETECTION SYSTEM:" << std::endl;
+    std::cout << "     - Optimized ML weights for footstep characteristics" << std::endl;
+    std::cout << "     - Faster processing (64 samples = ~1.5ms latency)" << std::endl;
+    std::cout << "     - Realistic sensitivity range (0.1-0.7 threshold)" << std::endl;
+    std::cout << "     - Improved spectral analysis" << std::endl;
+    std::cout << "   Default settings: Sensitivity=0.8, Enhancement=1.2x" << std::endl;
+    std::cout << "   Gentle EQ: 3.7dB total enhancement" << std::endl;
+    std::cout << "   Smart gain compensation with soft limiting" << std::endl;
+    std::cout << "   PASS-THROUGH MODE: No reduction when no footsteps detected" << std::endl;
 }
 
 
@@ -163,7 +163,7 @@ void FootstepDetectorAudioProcessor::changeProgramName(int index, const juce::St
 
 void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    std::cout << "🔧 PREPARING PLUGIN FOR PLAYBACK..." << std::endl;
+    std::cout << "PREPARING PLUGIN FOR PLAYBACK..." << std::endl;
     std::cout << "   Sample Rate: " << sampleRate << " Hz" << std::endl;
     std::cout << "   Block Size: " << samplesPerBlock << " samples" << std::endl;
     
@@ -171,11 +171,11 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
     if (mlFootstepClassifier != nullptr)
     {
         mlFootstepClassifier->prepare(sampleRate, samplesPerBlock);
-        std::cout << "✅ ML classifier prepared successfully" << std::endl;
+        std::cout << "ML classifier prepared successfully" << std::endl;
     }
     else
     {
-        std::cerr << "❌ CRITICAL: ML classifier is null! Plugin cannot function." << std::endl;
+        std::cerr << "CRITICAL: ML classifier is null! Plugin cannot function." << std::endl;
         return;
     }
     
@@ -196,7 +196,7 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             180.0f,  // Low frequency footstep thump
             0.8f,    // Q factor
-            juce::Decibels::decibelsToGain(1.5f)  // 1.5dB boost
+            1.189f   // 1.5dB boost = 1.189x gain
         );
     }
 
@@ -207,7 +207,7 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             300.0f,  // Mid frequency footstep clarity
             0.7f,    // Q factor
-            juce::Decibels::decibelsToGain(1.2f)  // 1.2dB boost
+            1.148f   // 1.2dB boost = 1.148x gain
         );
     }
 
@@ -218,17 +218,17 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
             sampleRate,
             450.0f,  // High frequency footstep definition
             0.6f,    // Q factor
-            juce::Decibels::decibelsToGain(1.0f)   // 1.0dB boost
+            1.122f   // 1.0dB boost = 1.122x gain
         );
     }
     
-    std::cout << "✅ PLUGIN PREPARATION COMPLETE!" << std::endl;
-    std::cout << "   🎛️  EQ filters initialized with gentle boosts:" << std::endl;
-    std::cout << "     • Low shelf (180Hz): +1.5dB" << std::endl;
-    std::cout << "     • Mid peak (300Hz): +1.2dB" << std::endl;
-    std::cout << "     • High peak (450Hz): +1.0dB" << std::endl;
-    std::cout << "   🔊 Total EQ gain: ~3.7dB" << std::endl;
-    std::cout << "   ⚡ Ready for real-time footstep detection!" << std::endl;
+    std::cout << "PLUGIN PREPARATION COMPLETE!" << std::endl;
+    std::cout << "   EQ filters initialized with gentle boosts:" << std::endl;
+    std::cout << "     - Low shelf (180Hz): +1.5dB" << std::endl;
+    std::cout << "     - Mid peak (300Hz): +1.2dB" << std::endl;
+    std::cout << "     - High peak (450Hz): +1.0dB" << std::endl;
+    std::cout << "   Total EQ gain: ~3.7dB" << std::endl;
+    std::cout << "   Ready for real-time footstep detection!" << std::endl;
 }
             1.0f     // SUBTLE: 1dB = 1.12x (was 3dB)
         );
@@ -287,7 +287,7 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
     static int debugCounter = 0;
     debugCounter++;
     if (debugCounter % (44100 * 2) == 0) { // Every ~2 seconds at 44.1kHz
-        std::cout << "🔧 PLUGIN STATUS - Sensitivity: " << sensitivity 
+        std::cout << "PLUGIN STATUS - Sensitivity: " << sensitivity 
                   << " | Enhancement: " << enhancement 
                   << " | Bypass: " << (bypass ? "ON" : "OFF") << std::endl;
         
@@ -303,7 +303,7 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
 
     // CRITICAL: Check ML classifier with better error handling
     if (!mlFootstepClassifier) {
-        std::cerr << "❌ CRITICAL: ML classifier is null! Plugin cannot function." << std::endl;
+        std::cerr << "CRITICAL: ML classifier is null! Plugin cannot function." << std::endl;
         isProcessing = false;
         return;
     }
@@ -339,7 +339,7 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
                 static int detectionCount = 0;
                 detectionCount++;
                 if (detectionCount % 5 == 0) { // Every 5th detection
-                    std::cout << "✅ Processing footstep #" << detectionCount 
+                    std::cout << "Processing footstep #" << detectionCount 
                               << " | Enhancement: " << enhancement << "x" << std::endl;
                 }
             }
@@ -380,7 +380,7 @@ void FootstepDetectorAudioProcessor::processBlock(juce::AudioBuffer<float>& buff
             static int ampDebugCounter = 0;
             ampDebugCounter++;
             if (ampDebugCounter % 11025 == 0 && currentAmplification > 1.02f) { // Every ~0.25 seconds
-                std::cout << "🔊 ENHANCEMENT ACTIVE - Current: " << currentAmplification 
+                std::cout << "ENHANCEMENT ACTIVE - Current: " << currentAmplification 
                           << " | Target: " << targetAmplification 
                           << " | Hold: " << (inHoldPhase ? "YES" : "NO") 
                           << " | Samples left: " << holdSamples << std::endl;
