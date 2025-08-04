@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <iostream>
 
 FootstepDetectorAudioProcessor::FootstepDetectorAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -230,17 +231,6 @@ void FootstepDetectorAudioProcessor::prepareToPlay(double sampleRate, int sample
     std::cout << "   Total EQ gain: ~3.7dB" << std::endl;
     std::cout << "   Ready for real-time footstep detection!" << std::endl;
 }
-            1.0f     // SUBTLE: 1dB = 1.12x (was 3dB)
-        );
-    }
-    
-    std::cout << "🎛️  SUBTLE EQ prepared for ML-detected footsteps" << std::endl;
-    std::cout << "   🔊 Low shelf (180Hz): +1.5dB boost (was +4dB)" << std::endl;
-    std::cout << "   🔊 Mid peak (300Hz): +1.2dB boost (was +3.5dB)" << std::endl;
-    std::cout << "   🔊 High peak (450Hz): +1dB boost (was +3dB)" << std::endl;
-    std::cout << "   ✅ Total EQ gain: ~3.7dB (was ~10.5dB)" << std::endl;
-}
-
 
 juce::AudioProcessorEditor* FootstepDetectorAudioProcessor::createEditor()
 {

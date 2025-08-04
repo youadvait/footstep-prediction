@@ -11,11 +11,18 @@ endif()
 # Windows-specific optimizations and compatibility
 if(WIN32)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT /O2")
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT /O2 /permissive- /EHsc")
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT /O2")
     
     # Ensure proper Windows SDK version
     set(CMAKE_SYSTEM_VERSION 10.0)
+    
+    # Add Windows-specific compiler flags for better compatibility
+    add_compile_options(/bigobj /utf-8)
+    
+    # More conservative linker settings for GitHub Actions
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /INCREMENTAL:NO")
+    set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /INCREMENTAL:NO")
 endif()
 
 add_subdirectory(JUCE)
@@ -100,6 +107,8 @@ target_compile_definitions(FootstepDetector PRIVATE
     $<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN=1>
     $<$<PLATFORM_ID:Windows>:NOMINMAX=1>
     $<$<PLATFORM_ID:Windows>:_CRT_SECURE_NO_WARNINGS=1>
+    $<$<PLATFORM_ID:Windows>:UNICODE=1>
+    $<$<PLATFORM_ID:Windows>:_UNICODE=1>
     $<$<PLATFORM_ID:Darwin>:JUCE_USE_NATIVE_ALERT_WINDOWS=1>
 )
 

@@ -37,17 +37,26 @@ jobs:
       run: |
         $mlFiles = @(
           "vst_plugin/Source/MLFootstepClassifier.h",
-          "vst_plugin/Source/MLFootstepClassifier.cpp"
+          "vst_plugin/Source/MLFootstepClassifier.cpp",
+          "vst_plugin/Source/PluginProcessor.h",
+          "vst_plugin/Source/PluginProcessor.cpp",
+          "vst_plugin/Source/PluginEditor.h",
+          "vst_plugin/Source/PluginEditor.cpp"
         )
         foreach ($file in $mlFiles) {
           if (Test-Path $file) {
             Write-Host "✅ $file found"
+            # Check for basic syntax issues
+            $content = Get-Content $file -Raw
+            if ($content -match "std::cout" -and $content -notmatch "#include.*iostream") {
+              Write-Host "⚠️  Warning: $file uses std::cout but may be missing iostream include"
+            }
           } else {
-            Write-Host "❌ $file missing - ML classifier incomplete"
+            Write-Host "❌ $file missing - build will fail"
             exit 1
           }
         }
-        Write-Host "🤖 ML classifier files verified"
+        Write-Host "🤖 All source files verified"
         
     - name: Setup MSVC
       uses: microsoft/setup-msbuild@v2
@@ -57,11 +66,11 @@ jobs:
       
     - name: Configure CMake (Windows x64)
       run: |
-        cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+        cmake -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON
         
     - name: Build ML-Powered VST3 Plugin
       run: |
-        cmake --build build --config Release --target FootstepDetector --parallel 4
+        cmake --build build --config Release --target FootstepDetector --parallel 2 --verbose
         
     - name: Verify ML-Enhanced Build Output
       run: |
